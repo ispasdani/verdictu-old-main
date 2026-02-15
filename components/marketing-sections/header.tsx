@@ -11,7 +11,7 @@ export default function Header() {
           <Link href="/" aria-label="Return to homepage">
             <img
               className="h-full w-fit"
-              src="/logos/FyrreMagazineLogo-Black.svg"
+              src="/icons/verdictu-black.svg"
               alt="logo"
             />
           </Link>

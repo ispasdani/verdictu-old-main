@@ -32,9 +32,9 @@ const DesktopNav = () => {
           },
           {
             href: "#",
-            ariaLabel: "Visit our Twitter page",
-            src: "/icons/ri_twitter-fill.svg",
-            alt: "Twitter logo",
+            ariaLabel: "Visit our X page",
+            src: "/icons/x-black.svg",
+            alt: "X logo",
           },
           {
             href: "#",
@@ -44,9 +44,9 @@ const DesktopNav = () => {
           },
           {
             href: "#",
-            ariaLabel: "Visit our RSS feed",
-            src: "/icons/ri_rss-fill.svg",
-            alt: "RSS feed logo",
+            ariaLabel: "Visit our LinkedIn page",
+            src: "/icons/linkedin-black.svg",
+            alt: "LinkedIn logo",
           },
         ]}
       />
