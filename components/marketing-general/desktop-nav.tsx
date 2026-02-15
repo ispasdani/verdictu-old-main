@@ -1,0 +1,57 @@
+import menu from "@/data/menu";
+import Link from "next/link";
+import SocialSharing from "./social-sharing";
+
+const DesktopNav = () => {
+  return (
+    <nav
+      className="flex-1 items-center justify-end gap-6 hidden md:flex"
+      aria-labelledby="desktop-nav"
+    >
+      {menu.map((menuItem, index) => (
+        <Link key={index} href={menuItem.href}>
+          {menuItem.label}
+        </Link>
+      ))}
+      <svg
+        width="15"
+        height="1"
+        viewBox="0 0 15 1"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect width="15" height="1" fill="black" />
+      </svg>
+      <SocialSharing
+        links={[
+          {
+            href: "#",
+            ariaLabel: "Visit our Instagram page",
+            src: "/icons/ri_instagram-line.svg",
+            alt: "Instagram logo",
+          },
+          {
+            href: "#",
+            ariaLabel: "Visit our Twitter page",
+            src: "/icons/ri_twitter-fill.svg",
+            alt: "Twitter logo",
+          },
+          {
+            href: "#",
+            ariaLabel: "Visit our YouTube page",
+            src: "/icons/ri_youtube-fill.svg",
+            alt: "YouTube logo",
+          },
+          {
+            href: "#",
+            ariaLabel: "Visit our RSS feed",
+            src: "/icons/ri_rss-fill.svg",
+            alt: "RSS feed logo",
+          },
+        ]}
+      />
+    </nav>
+  );
+};
+
+export default DesktopNav;
