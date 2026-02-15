@@ -1,6 +1,5 @@
 import menu from "@/data/menu";
 import Link from "next/link";
-import React from "react";
 import SocialSharing from "./social-sharing";
 
 const MobileNav = () => {
@@ -33,9 +32,21 @@ const MobileNav = () => {
           },
           {
             href: "#",
-            ariaLabel: "Visit our Twitter page",
-            src: "/icons/ri_twitter-fill.svg",
-            alt: "Twitter logo",
+            ariaLabel: "Visit our X page",
+            src: "/icons/x-black.svg",
+            alt: "X logo",
+          },
+          {
+            href: "#",
+            ariaLabel: "Visit our YouTube page",
+            src: "/icons/ri_youtube-fill.svg",
+            alt: "YouTube logo",
+          },
+          {
+            href: "#",
+            ariaLabel: "Visit our LinkedIn page",
+            src: "/icons/linkedin-black.svg",
+            alt: "LinkedIn logo",
           },
         ]}
       />

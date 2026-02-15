@@ -120,14 +120,12 @@
   * {
     @apply border-border;
   }
-
   html {
     font-family:
       General Sans,
       system-ui,
       sans-serif;
   }
-
   body {
     @apply bg-background text-foreground;
   }
