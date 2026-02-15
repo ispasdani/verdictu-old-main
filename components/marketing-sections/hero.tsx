@@ -1,4 +1,7 @@
+import NewsLoading from "../marketing-general/news-ticker/loading";
+import NewsTicker from "../marketing-general/news-ticker/news-ticker";
 import PageTitle from "../marketing-general/page-title";
+import { Suspense } from "react";
 
 function Hero() {
   return (
@@ -10,6 +13,10 @@ function Hero() {
       >
         Law and Clarity
       </PageTitle>
+
+      <Suspense fallback={<NewsLoading />}>
+        <NewsTicker />
+      </Suspense>
     </main>
   );
 }
