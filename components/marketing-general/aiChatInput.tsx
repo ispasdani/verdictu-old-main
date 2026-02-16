@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef } from "react";
 import {
   Paperclip,
   ChevronDown,
@@ -11,33 +11,19 @@ import {
   Image as ImageIcon,
   AlertTriangle,
   Loader2,
-  MoreHorizontal,
   Check,
 } from "lucide-react";
-
-type UploadStatus = "idle" | "uploading" | "done" | "error";
-
-type AttachmentAction = "use_as_source" | "summarize" | "extract_citations";
-
-type AttachmentItem = {
-  id: string;
-  file: File;
-  name: string;
-  status: UploadStatus;
-  progress: number; // 0..100
-  error?: string;
-  lastAction?: AttachmentAction;
-};
+import {
+  useChatComposerStore,
+  type AttachmentAction,
+  type AttachmentItem,
+} from "@/store/chatComposerStore";
 
 const ACCEPTED_MIME = new Set<string>([
-  // PDFs
   "application/pdf",
-  // Word
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  // Text
   "text/plain",
-  // Images
   "image/png",
   "image/jpeg",
   "image/webp",
@@ -58,7 +44,6 @@ function makeId() {
 
 function validateFile(file: File): string | null {
   const mimeOk = ACCEPTED_MIME.has(file.type);
-  // Some browsers may provide empty type for certain files; fallback to extension check.
   const nameLower = file.name.toLowerCase();
   const extOk =
     nameLower.endsWith(".pdf") ||
@@ -79,13 +64,24 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-const AIChatInput = () => {
-  const [text, setText] = useState("");
-  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
-  const [globalError, setGlobalError] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-
+export default function AIChatInput() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const text = useChatComposerStore((s) => s.text);
+  const attachments = useChatComposerStore((s) => s.attachments);
+  const globalError = useChatComposerStore((s) => s.globalError);
+  const isDragOver = useChatComposerStore((s) => s.isDragOver);
+
+  const setText = useChatComposerStore((s) => s.setText);
+  const setGlobalError = useChatComposerStore((s) => s.setGlobalError);
+  const setIsDragOver = useChatComposerStore((s) => s.setIsDragOver);
+
+  const addAttachments = useChatComposerStore((s) => s.addAttachments);
+  const updateAttachment = useChatComposerStore((s) => s.updateAttachment);
+  const removeAttachment = useChatComposerStore((s) => s.removeAttachment);
+  const renameAttachmentInStore = useChatComposerStore(
+    (s) => s.renameAttachment,
+  );
 
   const hasAnyUploading = useMemo(
     () => attachments.some((a) => a.status === "uploading"),
@@ -101,24 +97,15 @@ const AIChatInput = () => {
   const simulateUpload = (id: string) => {
     let progress = 0;
     const interval = window.setInterval(() => {
-      progress += Math.floor(Math.random() * 12) + 6; // 6..17
+      progress += Math.floor(Math.random() * 12) + 6;
       if (progress >= 100) progress = 100;
 
-      setAttachments((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                status: progress === 100 ? "done" : "uploading",
-                progress,
-              }
-            : a,
-        ),
-      );
+      updateAttachment(id, {
+        status: progress === 100 ? "done" : "uploading",
+        progress,
+      });
 
-      if (progress === 100) {
-        window.clearInterval(interval);
-      }
+      if (progress === 100) window.clearInterval(interval);
     }, 180);
   };
 
@@ -130,25 +117,22 @@ const AIChatInput = () => {
 
     for (const file of list) {
       const error = validateFile(file);
-      const item: AttachmentItem = {
+      next.push({
         id: makeId(),
         file,
         name: file.name,
         status: error ? "error" : "uploading",
-        progress: error ? 0 : 0,
+        progress: 0,
         error: error ?? undefined,
-      };
-      next.push(item);
+      });
     }
 
     if (next.some((n) => n.status === "error")) {
-      // Show a global hint too (keeps styling minimal and consistent)
       setGlobalError("Some files couldn’t be added. Please check the errors.");
     }
 
-    setAttachments((prev) => [...prev, ...next]);
+    addAttachments(next);
 
-    // Start uploads for valid ones
     for (const item of next) {
       if (item.status === "uploading") simulateUpload(item.id);
     }
@@ -157,12 +141,7 @@ const AIChatInput = () => {
   const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files;
     if (f && f.length > 0) addFiles(f);
-    // reset so selecting the same file again triggers change
     e.target.value = "";
-  };
-
-  const removeAttachment = (id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
   const renameAttachment = (id: string) => {
@@ -172,34 +151,19 @@ const AIChatInput = () => {
     const nextName = window.prompt("Rename file", current.name);
     if (!nextName) return;
 
-    setAttachments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, name: nextName } : a)),
-    );
+    renameAttachmentInStore(id, nextName);
   };
 
   const runAttachmentAction = (id: string, action: AttachmentAction) => {
-    // Placeholder: you’ll call your backend / agent tool here.
-    // We keep UI consistent by marking a “lastAction” and briefly flipping status.
-    setAttachments((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? {
-              ...a,
-              lastAction: action,
-            }
-          : a,
-      ),
-    );
+    updateAttachment(id, { lastAction: action });
   };
 
   const retryUpload = (id: string) => {
-    setAttachments((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? { ...a, status: "uploading", progress: 0, error: undefined }
-          : a,
-      ),
-    );
+    updateAttachment(id, {
+      status: "uploading",
+      progress: 0,
+      error: undefined,
+    });
     simulateUpload(id);
   };
 
@@ -241,7 +205,6 @@ const AIChatInput = () => {
 
       {/* 1. ATTACHMENTS PREVIEW AREA (Visible above the bubble) */}
       <div className="flex flex-col gap-2 mb-2 px-2">
-        {/* Hints + Privacy line (kept subtle, same general styling language) */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs text-gray-500">
             Attach {ACCEPTED_EXT_HINTS} (max {MAX_FILE_SIZE_MB}MB each)
@@ -251,7 +214,6 @@ const AIChatInput = () => {
           </div>
         </div>
 
-        {/* Global error */}
         {globalError && (
           <div className="flex items-center gap-2 text-xs text-red-600">
             <AlertTriangle size={14} />
@@ -259,7 +221,6 @@ const AIChatInput = () => {
           </div>
         )}
 
-        {/* Attachment chips */}
         <div className="flex flex-wrap gap-2">
           {attachments.map((att) => {
             const Icon = getFileIcon(att.file);
@@ -276,7 +237,6 @@ const AIChatInput = () => {
                   <div className="flex items-center gap-2">
                     <span className="max-w-[220px] truncate">{att.name}</span>
 
-                    {/* Status */}
                     {att.status === "uploading" && (
                       <span className="text-xs text-gray-500 flex items-center gap-1">
                         <Loader2 size={12} className="animate-spin" />
@@ -297,7 +257,6 @@ const AIChatInput = () => {
                     )}
                   </div>
 
-                  {/* Progress bar (subtle) */}
                   {att.status === "uploading" && (
                     <div className="h-1 w-[240px] max-w-[60vw] bg-white/60 rounded mt-1 overflow-hidden border border-gray-200">
                       <div
@@ -307,7 +266,6 @@ const AIChatInput = () => {
                     </div>
                   )}
 
-                  {/* Error detail + retry */}
                   {att.status === "error" && (
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-red-600">
@@ -316,13 +274,13 @@ const AIChatInput = () => {
                       <button
                         className="text-xs text-gray-700 underline underline-offset-2"
                         onClick={() => retryUpload(att.id)}
+                        type="button"
                       >
                         Retry
                       </button>
                     </div>
                   )}
 
-                  {/* Actions row */}
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <button
                       className="text-xs text-gray-700 underline underline-offset-2 disabled:text-gray-400"
@@ -331,6 +289,7 @@ const AIChatInput = () => {
                       }
                       disabled={att.status !== "done"}
                       title="Use this file as a source for citations"
+                      type="button"
                     >
                       Use as source
                     </button>
@@ -339,6 +298,7 @@ const AIChatInput = () => {
                       onClick={() => runAttachmentAction(att.id, "summarize")}
                       disabled={att.status !== "done"}
                       title="Summarize this file"
+                      type="button"
                     >
                       Summarize
                     </button>
@@ -349,30 +309,30 @@ const AIChatInput = () => {
                       }
                       disabled={att.status !== "done"}
                       title="Extract citations found in this file"
+                      type="button"
                     >
                       Extract citations
                     </button>
 
-                    {/* Optional rename */}
                     <button
                       className="text-xs text-gray-700 underline underline-offset-2"
                       onClick={() => renameAttachment(att.id)}
                       title="Rename"
+                      type="button"
                     >
                       Rename
                     </button>
 
-                    {/* Remove */}
                     <button
                       className="ml-auto p-1 rounded hover:bg-gray-200 transition-colors"
                       onClick={() => removeAttachment(att.id)}
                       title="Remove"
+                      type="button"
                     >
                       <X size={14} className="text-gray-600" />
                     </button>
                   </div>
 
-                  {/* Last action indicator (tiny) */}
                   {att.lastAction && (
                     <div className="text-[11px] text-gray-500 mt-1">
                       Last action:{" "}
@@ -399,7 +359,6 @@ const AIChatInput = () => {
         onDragLeave={onDragLeave}
         onDrop={onDrop}
       >
-        {/* TEXT AREA & ICON */}
         <div className="flex items-start gap-3 mb-4">
           <Sparkles className="text-gray-400 mt-1" size={18} />
           <textarea
@@ -410,7 +369,6 @@ const AIChatInput = () => {
           />
         </div>
 
-        {/* Drop hint (only visible while dragging) */}
         {isDragOver && (
           <div className="mb-4 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-600 flex items-center gap-2">
             <Paperclip size={16} className="text-gray-700" />
@@ -418,10 +376,8 @@ const AIChatInput = () => {
           </div>
         )}
 
-        {/* BOTTOM TOOLBAR */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* ATTACH BUTTON */}
             <button
               className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
               onClick={openFilePicker}
@@ -431,7 +387,6 @@ const AIChatInput = () => {
               <span className="text-sm font-medium text-gray-700">Attach</span>
             </button>
 
-            {/* WRITING STYLES BUTTON (unchanged) */}
             <button
               className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
               type="button"
@@ -444,7 +399,6 @@ const AIChatInput = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* CITATION TOGGLE (unchanged visually) */}
             <div className="flex items-center gap-2">
               <div className="relative inline-flex items-center cursor-pointer">
                 <div className="w-11 h-6 bg-indigo-600 rounded-full flex items-center px-1">
@@ -454,10 +408,9 @@ const AIChatInput = () => {
               <span className="text-sm text-gray-600">Citation</span>
             </div>
 
-            {/* SEND BUTTON */}
             <button
               className="bg-[#14151a] p-2.5 rounded-xl text-white hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => (window.location.href = `/chat/new-id/`)} // Placeholder for routing
+              onClick={() => (window.location.href = `/chat/new-id/`)}
               disabled={hasAnyUploading}
               title={
                 hasAnyUploading ? "Please wait for uploads to finish" : "Send"
@@ -471,6 +424,4 @@ const AIChatInput = () => {
       </div>
     </div>
   );
-};
-
-export default AIChatInput;
+}
