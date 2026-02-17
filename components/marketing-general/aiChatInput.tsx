@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Paperclip,
   ChevronDown,
@@ -11,7 +11,22 @@ import {
   AlertTriangle,
   Loader2,
   Check,
+  Globe,
 } from "lucide-react";
+
+const JURISDICTIONS = [
+  { value: "auto", label: "Auto" },
+  { value: "eu", label: "EU" },
+  { value: "dk", label: "Denmark" },
+  { value: "de", label: "Germany" },
+  { value: "uk", label: "UK" },
+  { value: "fr", label: "France" },
+  { value: "se", label: "Sweden" },
+  { value: "nl", label: "Netherlands" },
+];
+
+const MODES = ["General", "Compare", "Draft"] as const;
+type Mode = (typeof MODES)[number];
 import {
   useChatComposerStore,
   type AttachmentAction,
@@ -57,6 +72,10 @@ function validateFile(file: File): string | null {
 
 export default function AIChatInput() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [jurisdiction, setJurisdiction] = useState("auto");
+  const [mode, setMode] = useState<Mode>("General");
+  const [citationEnabled, setCitationEnabled] = useState(true);
 
   const text = useChatComposerStore((s) => s.text);
   const attachments = useChatComposerStore((s) => s.attachments);
@@ -380,45 +399,81 @@ export default function AIChatInput() {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Attach */}
             <button
-              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
               onClick={openFilePicker}
               type="button"
             >
-              <Paperclip size={18} className="text-gray-700" />
+              <Paperclip size={16} className="text-gray-700" />
               <span className="text-sm font-medium text-gray-700">Attach</span>
             </button>
 
-            <button
-              className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-              type="button"
-            >
-              <span className="text-sm font-medium text-gray-700">
-                Writing Styles
-              </span>
-              <ChevronDown size={16} className="text-gray-500" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="relative inline-flex items-center cursor-pointer">
-                <div className="w-11 h-6 bg-indigo-600 rounded-full flex items-center px-1">
-                  <div className="bg-white w-4 h-4 rounded-full shadow-sm translate-x-5" />
-                </div>
-              </div>
-              <span className="text-sm text-gray-600">Citation</span>
+            {/* Jurisdiction selector */}
+            <div className="relative flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              <Globe size={15} className="text-gray-500 shrink-0" />
+              <select
+                value={jurisdiction}
+                onChange={(e) => setJurisdiction(e.target.value)}
+                className="bg-transparent border-none outline-none text-sm font-medium text-gray-700 cursor-pointer appearance-none pr-4"
+              >
+                {JURISDICTIONS.map((j) => (
+                  <option key={j.value} value={j.value}>
+                    {j.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={13} className="text-gray-400 pointer-events-none absolute right-2.5" />
             </div>
 
+            {/* Mode switcher */}
+            <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
+              {MODES.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    mode === m
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Citation toggle */}
+            <button
+              type="button"
+              className="flex items-center gap-2"
+              onClick={() => setCitationEnabled((v) => !v)}
+            >
+              <div
+                className={`w-9 h-5 rounded-full flex items-center px-0.5 transition-colors ${
+                  citationEnabled ? "bg-indigo-600" : "bg-gray-300"
+                }`}
+              >
+                <div
+                  className={`bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${
+                    citationEnabled ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </div>
+              <span className="text-sm text-gray-600">Citations</span>
+            </button>
+
+            {/* Send */}
             <button
               className="bg-[#14151a] p-2.5 rounded-xl text-white hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => (window.location.href = `/chat/new-id/`)}
               disabled={hasAnyUploading}
-              title={
-                hasAnyUploading ? "Please wait for uploads to finish" : "Send"
-              }
+              title={hasAnyUploading ? "Please wait for uploads to finish" : "Send"}
               type="button"
             >
               <ArrowUp size={20} strokeWidth={2.5} />
