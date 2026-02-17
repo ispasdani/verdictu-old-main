@@ -14,6 +14,7 @@ export type AttachmentItem = {
   progress: number; // 0..100
   error?: string;
   lastAction?: AttachmentAction;
+  extractedText?: string; // plain text extracted from the file; sourceFile reference is `name`
 };
 
 type ComposerState = {

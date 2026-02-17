@@ -8,7 +8,6 @@ import {
   Sparkles,
   X,
   FileText,
-  Image as ImageIcon,
   AlertTriangle,
   Loader2,
   Check,
@@ -24,19 +23,12 @@ const ACCEPTED_MIME = new Set<string>([
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
 ]);
 
-const ACCEPTED_EXT_HINTS = "PDF, DOCX, image, txt";
+const ACCEPTED_EXT_HINTS = "PDF, DOCX, DOC, TXT";
 const MAX_FILE_SIZE_MB = 20;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-function getFileIcon(file: File) {
-  if (file.type.startsWith("image/")) return ImageIcon;
-  return FileText;
-}
 
 function makeId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -49,14 +41,13 @@ function validateFile(file: File): string | null {
     nameLower.endsWith(".pdf") ||
     nameLower.endsWith(".doc") ||
     nameLower.endsWith(".docx") ||
-    nameLower.endsWith(".txt") ||
-    nameLower.endsWith(".png") ||
-    nameLower.endsWith(".jpg") ||
-    nameLower.endsWith(".jpeg") ||
-    nameLower.endsWith(".webp");
+    nameLower.endsWith(".txt");
 
   if (!mimeOk && !extOk) {
     return `Unsupported file type. Please upload ${ACCEPTED_EXT_HINTS}.`;
+  }
+  if (file.size === 0) {
+    return "File is empty. Open it in Word/your editor and save it first.";
   }
   if (file.size > MAX_FILE_SIZE_BYTES) {
     return `File too large. Max ${MAX_FILE_SIZE_MB}MB.`;
@@ -93,20 +84,37 @@ export default function AIChatInput() {
     fileInputRef.current?.click();
   };
 
-  // Simulated upload (replace with real API upload later)
-  const simulateUpload = (id: string) => {
-    let progress = 0;
-    const interval = window.setInterval(() => {
-      progress += Math.floor(Math.random() * 12) + 6;
-      if (progress >= 100) progress = 100;
+  const extractTextFromFile = async (id: string, file: File) => {
+    const ext = file.name.split(".").pop()?.toLowerCase();
 
-      updateAttachment(id, {
-        status: progress === 100 ? "done" : "uploading",
-        progress,
+    try {
+      let text: string;
+
+      if (ext === "doc") {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/extract-doc", { method: "POST", body: fd });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const data = await res.json();
+        text = data.text ?? "";
+      } else {
+        const { extractText } = await import("@/lib/extractText");
+        text = await extractText(file);
+      }
+
+      console.log(`[extraction] source: "${file.name}"`, {
+        chars: text.length,
+        preview: text.slice(0, 300),
       });
 
-      if (progress === 100) window.clearInterval(interval);
-    }, 180);
+      updateAttachment(id, { status: "done", progress: 100, extractedText: text });
+    } catch (err) {
+      console.error(`[extraction error] "${file.name}"`, err);
+      updateAttachment(id, {
+        status: "error",
+        error: err instanceof Error ? err.message : "Text extraction failed.",
+      });
+    }
   };
 
   const addFiles = (files: FileList | File[]) => {
@@ -134,7 +142,7 @@ export default function AIChatInput() {
     addAttachments(next);
 
     for (const item of next) {
-      if (item.status === "uploading") simulateUpload(item.id);
+      if (item.status === "uploading") extractTextFromFile(item.id, item.file);
     }
   };
 
@@ -159,12 +167,10 @@ export default function AIChatInput() {
   };
 
   const retryUpload = (id: string) => {
-    updateAttachment(id, {
-      status: "uploading",
-      progress: 0,
-      error: undefined,
-    });
-    simulateUpload(id);
+    const att = attachments.find((a) => a.id === id);
+    if (!att) return;
+    updateAttachment(id, { status: "uploading", progress: 0, error: undefined });
+    extractTextFromFile(id, att.file);
   };
 
   // Drag & Drop (whole bubble is drop target)
@@ -223,15 +229,13 @@ export default function AIChatInput() {
 
         <div className="flex flex-wrap gap-2">
           {attachments.map((att) => {
-            const Icon = getFileIcon(att.file);
-
             return (
               <div
                 key={att.id}
                 className="bg-gray-100 rounded-lg p-2 text-sm border flex items-center gap-2"
                 title={att.file.name}
               >
-                <Icon size={14} />
+                <FileText size={14} />
 
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
