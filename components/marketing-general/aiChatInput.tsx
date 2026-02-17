@@ -44,7 +44,6 @@ const ACCEPTED_EXT_HINTS = "PDF, DOCX, DOC, TXT";
 const MAX_FILE_SIZE_MB = 20;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-
 function makeId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -112,7 +111,10 @@ export default function AIChatInput() {
       if (ext === "doc") {
         const fd = new FormData();
         fd.append("file", file);
-        const res = await fetch("/api/extract-doc", { method: "POST", body: fd });
+        const res = await fetch("/api/extract-doc", {
+          method: "POST",
+          body: fd,
+        });
         if (!res.ok) throw new Error(`Server error ${res.status}`);
         const data = await res.json();
         text = data.text ?? "";
@@ -126,7 +128,11 @@ export default function AIChatInput() {
         preview: text.slice(0, 300),
       });
 
-      updateAttachment(id, { status: "done", progress: 100, extractedText: text });
+      updateAttachment(id, {
+        status: "done",
+        progress: 100,
+        extractedText: text,
+      });
     } catch (err) {
       console.error(`[extraction error] "${file.name}"`, err);
       updateAttachment(id, {
@@ -188,7 +194,11 @@ export default function AIChatInput() {
   const retryUpload = (id: string) => {
     const att = attachments.find((a) => a.id === id);
     if (!att) return;
-    updateAttachment(id, { status: "uploading", progress: 0, error: undefined });
+    updateAttachment(id, {
+      status: "uploading",
+      progress: 0,
+      error: undefined,
+    });
     extractTextFromFile(id, att.file);
   };
 
@@ -217,7 +227,7 @@ export default function AIChatInput() {
     ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg,image/webp";
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4">
+    <div className="w-full  mx-auto mt-5 mb-5">
       {/* Hidden real file input */}
       <input
         ref={fileInputRef}
@@ -425,7 +435,10 @@ export default function AIChatInput() {
                   </option>
                 ))}
               </select>
-              <ChevronDown size={13} className="text-gray-400 pointer-events-none absolute right-2.5" />
+              <ChevronDown
+                size={13}
+                className="text-gray-400 pointer-events-none absolute right-2.5"
+              />
             </div>
 
             {/* Mode switcher */}
@@ -473,7 +486,9 @@ export default function AIChatInput() {
               className="bg-[#14151a] p-2.5 rounded-xl text-white hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => (window.location.href = `/chat/new-id/`)}
               disabled={hasAnyUploading}
-              title={hasAnyUploading ? "Please wait for uploads to finish" : "Send"}
+              title={
+                hasAnyUploading ? "Please wait for uploads to finish" : "Send"
+              }
               type="button"
             >
               <ArrowUp size={20} strokeWidth={2.5} />
