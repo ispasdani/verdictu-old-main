@@ -87,12 +87,9 @@ function MarqueeRow({
   const reducedMotion = usePrefersReducedMotion();
   // Duplicate for seamless loop: animate 0 → -50% (left) or -50% → 0 (right)
   const items = useMemo(() => [...prompts, ...prompts], [prompts]);
-  const animName =
-    direction === "left" ? "pm-scroll-left" : "pm-scroll-right";
-
   return (
     <div
-      className="group relative overflow-hidden py-1.5 [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
+      className="pm-row relative overflow-hidden py-1.5 mask-[linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
       aria-label="Suggested prompts"
     >
       {/* Edge blur + fade overlays — matched to white page background */}
@@ -100,20 +97,11 @@ function MarqueeRow({
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-white to-transparent backdrop-blur-[2px]" />
 
       <div
-        className={[
-          "flex w-max items-center gap-3 px-2 will-change-transform",
-          !reducedMotion
-            ? "group-hover:[animation-play-state:paused]"
-            : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        className={`pm-track pm-track-${direction} flex w-max items-center gap-3 px-2 will-change-transform`}
         style={
           reducedMotion
             ? undefined
-            : {
-                animation: `${animName} ${durationSec}s linear infinite`,
-              }
+            : ({ "--pm-duration": `${durationSec}s` } as React.CSSProperties)
         }
       >
         {items.map((p, idx) => (
@@ -161,6 +149,15 @@ export default function PromptMarquee() {
         @keyframes pm-scroll-right {
           from { transform: translateX(-50%); }
           to   { transform: translateX(0); }
+        }
+        .pm-track-left {
+          animation: pm-scroll-left var(--pm-duration) linear infinite;
+        }
+        .pm-track-right {
+          animation: pm-scroll-right var(--pm-duration) linear infinite;
+        }
+        .pm-row:hover .pm-track {
+          animation-play-state: paused;
         }
       `}</style>
     </section>
