@@ -123,11 +123,7 @@ export default function SingleMarqueePrompt() {
   const setText = useChatComposerStore((s) => s.setText);
 
   return (
-    <section className="w-full py-2" aria-label="Example prompts">
-      <p className="mb-2 text-center text-xs font-medium tracking-wide text-gray-400 uppercase">
-        Try asking
-      </p>
-
+    <section className="w-full py-2 mt-5" aria-label="Example prompts">
       <MarqueeRow
         prompts={BOTTOM_PROMPTS}
         direction="right"
