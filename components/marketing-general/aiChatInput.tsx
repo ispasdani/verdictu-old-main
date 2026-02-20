@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Paperclip,
   ChevronDown,
@@ -33,7 +34,6 @@ const JURISDICTIONS = [
 ];
 
 const MODES = ["General", "Compare", "Draft"] as const;
-type Mode = (typeof MODES)[number];
 
 const ACCEPTED_MIME = new Set<string>([
   "application/pdf",
@@ -151,22 +151,29 @@ export default function AIChatInput() {
   const fileInputARef = useRef<HTMLInputElement | null>(null);
   const fileInputBRef = useRef<HTMLInputElement | null>(null);
 
-  // UI state
-  const [jurisdiction, setJurisdiction] = useState("auto");
-  const [mode, setMode] = useState<Mode>("General");
-  const [citationEnabled, setCitationEnabled] = useState(true);
+  const router = useRouter();
+
+  // Local UI state (compare slots only)
   const [slotA, setSlotA] = useState<CompareSlot>(EMPTY_SLOT);
   const [slotB, setSlotB] = useState<CompareSlot>(EMPTY_SLOT);
 
-  // Store
+  // Store — composer content
   const text = useChatComposerStore((s) => s.text);
   const attachments = useChatComposerStore((s) => s.attachments);
   const globalError = useChatComposerStore((s) => s.globalError);
   const isDragOver = useChatComposerStore((s) => s.isDragOver);
 
+  // Store — session settings
+  const mode = useChatComposerStore((s) => s.mode);
+  const jurisdiction = useChatComposerStore((s) => s.jurisdiction);
+  const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
+
   const setText = useChatComposerStore((s) => s.setText);
   const setGlobalError = useChatComposerStore((s) => s.setGlobalError);
   const setIsDragOver = useChatComposerStore((s) => s.setIsDragOver);
+  const setMode = useChatComposerStore((s) => s.setMode);
+  const setJurisdiction = useChatComposerStore((s) => s.setJurisdiction);
+  const setCitationEnabled = useChatComposerStore((s) => s.setCitationEnabled);
   const addAttachments = useChatComposerStore((s) => s.addAttachments);
   const updateAttachment = useChatComposerStore((s) => s.updateAttachment);
   const removeAttachment = useChatComposerStore((s) => s.removeAttachment);
@@ -303,7 +310,7 @@ export default function AIChatInput() {
     e.target.value = "";
   };
 
-  // ── Send tooltip ────────────────────────────────────────────────────────────
+  // ── Send ────────────────────────────────────────────────────────────────────
 
   const sendTitle =
     mode === "Compare" && (!slotA.file || !slotB.file)
@@ -311,6 +318,19 @@ export default function AIChatInput() {
       : hasAnyUploading
         ? "Please wait for uploads to finish"
         : "Send";
+
+  const handleSend = () => {
+    if (!canSend) return;
+    const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    router.push(`/chat/${id}`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -498,6 +518,7 @@ export default function AIChatInput() {
               }
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
             />
           </div>
         )}
@@ -533,6 +554,7 @@ export default function AIChatInput() {
                 placeholder="What should we focus on? e.g. termination clauses, liability caps, IP ownership… (optional)"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
               />
             </div>
           </>
@@ -605,7 +627,7 @@ export default function AIChatInput() {
             <button
               type="button"
               className="flex items-center gap-2"
-              onClick={() => setCitationEnabled((v) => !v)}
+              onClick={() => setCitationEnabled(!citationEnabled)}
             >
               <div
                 className={`w-9 h-5 rounded-full flex items-center px-0.5 transition-colors ${
@@ -624,7 +646,7 @@ export default function AIChatInput() {
             {/* Send */}
             <button
               className="bg-[#14151a] p-2.5 rounded-xl text-white hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => (window.location.href = `/chat/new-id/`)}
+              onClick={handleSend}
               disabled={!canSend}
               title={sendTitle}
               type="button"

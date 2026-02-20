@@ -6,6 +6,8 @@ export type AttachmentAction =
   | "summarize"
   | "extract_citations";
 
+export type ChatMode = "General" | "Compare" | "Draft";
+
 export type AttachmentItem = {
   id: string;
   file: File;
@@ -23,10 +25,18 @@ type ComposerState = {
   globalError: string | null;
   isDragOver: boolean;
 
+  // session settings
+  mode: ChatMode;
+  jurisdiction: string;
+  citationEnabled: boolean;
+
   // actions
   setText: (text: string) => void;
   setIsDragOver: (v: boolean) => void;
   setGlobalError: (v: string | null) => void;
+  setMode: (mode: ChatMode) => void;
+  setJurisdiction: (jurisdiction: string) => void;
+  setCitationEnabled: (v: boolean) => void;
 
   addAttachments: (items: AttachmentItem[]) => void;
   updateAttachment: (id: string, patch: Partial<AttachmentItem>) => void;
@@ -42,10 +52,16 @@ export const useChatComposerStore = create<ComposerState>((set) => ({
   attachments: [],
   globalError: null,
   isDragOver: false,
+  mode: "General",
+  jurisdiction: "auto",
+  citationEnabled: true,
 
   setText: (text) => set({ text }),
   setIsDragOver: (isDragOver) => set({ isDragOver }),
   setGlobalError: (globalError) => set({ globalError }),
+  setMode: (mode) => set({ mode }),
+  setJurisdiction: (jurisdiction) => set({ jurisdiction }),
+  setCitationEnabled: (citationEnabled) => set({ citationEnabled }),
 
   addAttachments: (items) =>
     set((s) => ({
@@ -70,5 +86,13 @@ export const useChatComposerStore = create<ComposerState>((set) => ({
     })),
 
   clearAll: () =>
-    set({ text: "", attachments: [], globalError: null, isDragOver: false }),
+    set({
+      text: "",
+      attachments: [],
+      globalError: null,
+      isDragOver: false,
+      mode: "General",
+      jurisdiction: "auto",
+      citationEnabled: true,
+    }),
 }));
