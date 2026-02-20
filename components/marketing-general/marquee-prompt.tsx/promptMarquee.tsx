@@ -119,7 +119,7 @@ function MarqueeRow({
 
 // ─── PromptMarquee ────────────────────────────────────────────────────────────
 
-export default function PromptMarquee() {
+export default function DoubleMarqueePrompt() {
   const setText = useChatComposerStore((s) => s.setText);
 
   return (
