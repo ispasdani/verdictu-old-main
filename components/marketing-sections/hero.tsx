@@ -2,8 +2,10 @@ import AIChatInput from "../marketing-general/aiChatInput";
 import NewsLoading from "../marketing-general/news-ticker/loading";
 import NewsTicker from "../marketing-general/news-ticker/news-ticker";
 import PageTitle from "../marketing-general/page-title";
-import PromptMarquee from "../marketing-general/marquee-prompt.tsx/promptMarquee";
+import PromptMarquee from "../marketing-general/marquee-prompt.tsx/double-marquee-prompt";
 import { Suspense } from "react";
+import DoubleMarqueePrompt from "../marketing-general/marquee-prompt.tsx/double-marquee-prompt";
+import SingleMarqueePrompt from "../marketing-general/marquee-prompt.tsx/single-marquee-prompt";
 
 function Hero() {
   return (
@@ -20,7 +22,7 @@ function Hero() {
         <NewsTicker />
       </Suspense>
 
-      <PromptMarquee />
+      <SingleMarqueePrompt />
       <AIChatInput />
     </main>
   );
