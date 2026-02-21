@@ -13,10 +13,10 @@
     },
     "articles": [
       {
-        "title": "Jurisdiction-First Answers: The Only Way Legal AI Stays Useful",
+        "title": "Jurisdiction-First Answers",
         "popular": true,
         "popularity": 1,
-        "description": "If your assistant doesn’t start by asking “which country / which court / which rule-set?”, it will eventually produce confident nonsense. Here’s how Verdictu structures answers to avoid that.",
+        "description": "Legal AI only stays useful when it starts with the one thing that changes everything: the jurisdiction. If your assistant doesn’t ask “which country / which court / which rule-set?”, it will eventually produce confident nonsense. Verdictu structures every answer around jurisdiction-first thinking so users get source-backed clarity, not generic guesswork.",
         "date": "18 February 2026",
         "read": "6 mins",
         "label": "Product",
@@ -27,10 +27,10 @@
         "content": [
           {
             "img": "/images/articles/single-post/jurisdiction-first.jpg",
-            "summary": "Legal questions aren’t universal. The same phrase can mean something different in Denmark than in Germany. Verdictu treats jurisdiction like the first required field, not an optional detail."
+            "summary": "Legal questions aren’t universal. The same phrase can mean something different in Denmark than in Germany — and EU law can still be implemented differently at national level. Verdictu treats jurisdiction like the first required field, not an optional detail, so answers start from the right legal reality and stay usable in practice."
           },
           {
-            "section1": "### The core pattern\n\nA safe legal answer is basically a sequence:\n\n1) Identify the jurisdiction(s)\n2) Identify the area of law + time context\n3) Pull the right sources (official registers, ministries, courts)\n4) Summarize what the sources say\n5) Draft a response with clear assumptions + boundaries\n\nIn Verdictu, the UI pushes this early. If the user doesn’t pick a jurisdiction, we ask. If they pick more than one, we label what is country-specific and what is EU-wide.\n\n### Why it matters\n\nMost “bad” AI legal answers fail at step 1. They assume a generic rule, mix countries, or apply EU principles where national implementation differs."
+            "section1": "### The core pattern\n\nReliable legal output is a process — not a single “final answer.” Verdictu follows a simple sequence that mirrors how lawyers work:\n\n1) Identify the jurisdiction(s)\n2) Identify the area of law + time context\n3) Pull the right sources (official registers, ministries, courts)\n4) Summarize what the sources say\n5) Draft a response with clear assumptions + boundaries\n\nOur UI pushes this early: if the user doesn’t pick a jurisdiction, we ask. If they pick more than one, we label what’s country-specific vs EU-wide. This prevents the most common failure mode in legal AI: mixing rule-sets and presenting it as one coherent answer.\n\n### Why it matters\n\nMost “bad” AI legal answers fail at step 1. They assume a generic rule, blend jurisdictions, or apply EU principles where national implementation differs. The result is advice that sounds confident — but doesn’t survive real-world use."
           },
           {
             "quote": [
@@ -39,10 +39,10 @@
             ]
           },
           {
-            "summary2": "Verdictu’s goal isn’t to be flashy. It’s to be right often, transparent always, and helpful even when the answer is “it depends.”"
+            "summary2": "Verdictu isn’t trying to be flashy. It’s designed to be right often, transparent always, and helpful even when the only honest conclusion is “it depends.” Jurisdiction-first structure makes that possible: users see what applies, what’s uncertain, and what to confirm before acting."
           },
           {
-            "section2": "### Practical output rules we use\n\n- We separate **facts** (source-backed) from **interpretation** (clearly marked).\n- We include a short checklist: “What to confirm” + “What to ask a lawyer.”\n- When sources differ or the law is evolving, we say that explicitly.\n\n### The takeaway\n\nIf you build your product around jurisdiction-first thinking, your answers become more reliable—and your users learn how to ask better questions."
+            "section2": "### Practical output rules we use\n\n- We separate **facts** (source-backed) from **interpretation** (clearly marked).\n- We include a short checklist: “What to confirm” + “What to ask a lawyer.”\n- When sources differ or the law is evolving, we say that explicitly.\n- When a question is underspecified, we respond with targeted questions instead of guessing.\n\n### The takeaway\n\nIf you build your product around jurisdiction-first thinking, your answers become more reliable — and your users learn how to ask better legal questions. Verdictu turns “legal AI” into something you can actually use in practice: scoped, sourced, and honest about boundaries."
           }
         ]
       },
