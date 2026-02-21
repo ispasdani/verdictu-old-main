@@ -47,6 +47,40 @@
         ]
       },
       {
+        "title": "Source-Backed Workarounds",
+        "popular": true,
+        "popularity": 2,
+        "description": "When rules feel like a wall, people don’t just need information — they need a path forward. Verdictu is built to fight for users with source-backed clarity: we show what the law says, what your options are, and the safest workarounds that actually hold up in the real world.",
+        "date": "21 February 2026",
+        "read": "7 mins",
+        "label": "Product",
+        "img": "/videos/presentation-video.mp4",
+        "video": "/videos/presentation-video.mp4",
+        "imgAlt": "A focused workspace with highlighted documents and a laptop showing a legal checklist",
+        "slug": "source-backed-workarounds",
+        "content": [
+          {
+            "img": "/images/articles/single-post/source-backed-workarounds.jpg",
+            "summary": "People come to legal tools when something feels unfair, confusing, or urgent. Most AI responds with generic explanations that sound professional but don’t help you take action. Verdictu is different: we don’t just explain — we map your options, show the sources, and help you move forward with confidence."
+          },
+          {
+            "section1": "### What users actually want\n\nIn real life, legal questions are rarely academic. They sound like:\n\n- “My landlord won’t fix this — what can I do *today*?”\n- “They rejected my claim — how do I appeal?”\n- “I’m being charged a fee that doesn’t seem legal — how do I challenge it?”\n\nIn these moments, trust matters more than tone. A helpful answer must be **verifiable**, **actionable**, and **safe**. That’s why Verdictu is designed to deliver **source-backed workarounds** — legal paths that are permitted, realistic, and grounded in the correct jurisdiction.\n\n### The Verdictu approach\n\nWe structure answers around outcomes:\n\n1) What the law says (with sources)\n2) What options you have (ranked by safety and effort)\n3) What to do next (a checklist you can follow)\n4) What evidence to collect (so you don’t lose leverage)\n5) When to escalate (and what to say if you do)"
+          },
+          {
+            "quote": [
+              "Don’t just tell me the rule — tell me the safest way through it.",
+              "A Verdictu user"
+            ]
+          },
+          {
+            "summary2": "Verdictu is built to be on the user’s side — not by making promises, but by making the path clear. We separate what’s guaranteed from what’s likely, and we never hide uncertainty behind confident wording. If something depends on facts we don’t have, we ask for them. If the law varies by municipality, contract type, or deadlines, we label it."
+          },
+          {
+            "section2": "### Practical output rules that build trust\n\n- **Sources first:** every key claim links back to official registers, ministries, courts, or regulators.\n- **Options, not lectures:** we provide multiple valid routes (low-conflict → formal escalation) so users can choose.\n- **Workarounds ≠ loopholes:** we suggest only lawful, defensible actions — and explain risks plainly.\n- **Ready-to-use steps:** we output checklists, email templates, and “what to say / what not to say.”\n- **Evidence mindset:** we tell users what to document and how to preserve proof.\n\n### The takeaway\n\nVerdictu doesn’t exist to sound smart. It exists to help people win time, reduce risk, and make smarter decisions under pressure — with **source-backed clarity** they can rely on. When the system is hard to navigate, we help users navigate it — safely, transparently, and on their terms."
+          }
+        ]
+      },
+      {
         "title": "General, Compare, Draft: Picking the Right Mode for the Job",
         "popular": true,
         "popularity": 2,
