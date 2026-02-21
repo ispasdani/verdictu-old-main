@@ -1,6 +1,7 @@
 import Container from "@/components/marketing-general/container";
 import "./globals.css";
 import type { Metadata } from "next";
+import ArticleContextProvider from "./providers/article-context-provider";
 
 export const metadata: Metadata = {
   title: {
@@ -76,7 +77,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <Container>{children}</Container>
+        <ArticleContextProvider>
+          <Container>{children}</Container>
+        </ArticleContextProvider>
       </body>
     </html>
   );

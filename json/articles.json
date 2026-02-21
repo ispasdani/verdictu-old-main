@@ -1,0 +1,130 @@
+[
+  {
+    "id": 1,
+    "author": "Verdictu Editorial",
+    "job": "Legal Product & Research",
+    "city": "Copenhagen",
+    "avatar": "/images/authors/verdictu-editorial.jpg",
+    "imgAlt": "Verdictu editorial avatar",
+    "slug": "verdictu-editorial",
+    "biography": {
+      "summary": "Verdictu Editorial writes about building trustworthy legal workflows across European jurisdictions.",
+      "body": "We cover product decisions, legal research workflows, and how to keep AI answers grounded in sources. Verdictu’s mission is to make legal work faster without sacrificing accuracy, clarity, or jurisdictional nuance."
+    },
+    "articles": [
+      {
+        "title": "Jurisdiction-First Answers: The Only Way Legal AI Stays Useful",
+        "popular": true,
+        "popularity": 1,
+        "description": "If your assistant doesn’t start by asking “which country / which court / which rule-set?”, it will eventually produce confident nonsense. Here’s how Verdictu structures answers to avoid that.",
+        "date": "18 February 2026",
+        "read": "6 mins",
+        "label": "Product",
+        "img": "/images/articles/preview/jurisdiction-first.jpg",
+        "imgAlt": "A minimal desk setup with legal books and a laptop",
+        "slug": "jurisdiction-first-answers",
+        "content": [
+          {
+            "img": "/images/articles/single-post/jurisdiction-first.jpg",
+            "summary": "Legal questions aren’t universal. The same phrase can mean something different in Denmark than in Germany. Verdictu treats jurisdiction like the first required field, not an optional detail."
+          },
+          {
+            "section1": "### The core pattern\n\nA safe legal answer is basically a sequence:\n\n1) Identify the jurisdiction(s)\n2) Identify the area of law + time context\n3) Pull the right sources (official registers, ministries, courts)\n4) Summarize what the sources say\n5) Draft a response with clear assumptions + boundaries\n\nIn Verdictu, the UI pushes this early. If the user doesn’t pick a jurisdiction, we ask. If they pick more than one, we label what is country-specific and what is EU-wide.\n\n### Why it matters\n\nMost “bad” AI legal answers fail at step 1. They assume a generic rule, mix countries, or apply EU principles where national implementation differs."
+          },
+          {
+            "quote": [
+              "The fastest way to lose trust is to sound sure about the wrong jurisdiction.",
+              "Verdictu Editorial"
+            ]
+          },
+          {
+            "summary2": "Verdictu’s goal isn’t to be flashy. It’s to be right often, transparent always, and helpful even when the answer is “it depends.”"
+          },
+          {
+            "section2": "### Practical output rules we use\n\n- We separate **facts** (source-backed) from **interpretation** (clearly marked).\n- We include a short checklist: “What to confirm” + “What to ask a lawyer.”\n- When sources differ or the law is evolving, we say that explicitly.\n\n### The takeaway\n\nIf you build your product around jurisdiction-first thinking, your answers become more reliable—and your users learn how to ask better questions."
+          }
+        ]
+      },
+      {
+        "title": "General, Compare, Draft: Picking the Right Mode for the Job",
+        "popular": true,
+        "popularity": 2,
+        "description": "Verdictu works best when the product makes the workflow obvious. Here’s when to use each mode and what to expect from the output.",
+        "date": "10 February 2026",
+        "read": "7 mins",
+        "label": "Guide",
+        "img": "/images/articles/preview/modes.jpg",
+        "imgAlt": "Three cards representing different modes",
+        "slug": "general-compare-draft-modes",
+        "content": [
+          {
+            "img": "/images/articles/single-post/modes.jpg",
+            "summary": "Modes aren’t just UI. They’re guardrails: each mode changes what the assistant is allowed to do, and how it structures the response."
+          },
+          {
+            "section1": "### General mode\n\nUse this when you need:\n- Quick legal orientation\n- Definitions / concepts\n- “Where do I look?” guidance\n\nOutput style:\n- A short answer first\n- Then sources + caveats\n\n### Compare mode\n\nUse this when you need:\n- Differences between two documents\n- Risk changes between versions\n- Missing clauses, contradictions, unusual obligations\n\nOutput style:\n- Table-like diff summaries\n- “What changed” + “Why it matters”"
+          },
+          {
+            "quote": [
+              "Your mode is the promise you make to the user about what kind of help they’ll get.",
+              "Verdictu Product Note"
+            ]
+          },
+          {
+            "summary2": "Draft mode is for writing. Compare mode is for evaluation. General mode is for answering and navigating sources."
+          },
+          {
+            "section2": "### Draft mode\n\nUse this when you need:\n- First drafts (letters, clauses, emails)\n- Rewrites for tone/clarity\n- Template-based drafting\n\nOutput style:\n- Structured sections\n- Optional variants (formal vs friendly)\n- A list of assumptions to confirm\n\n### The takeaway\n\nWhen users pick the right mode, you reduce hallucinations and increase usefulness. That’s the whole game."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "author": "Maja Lind",
+    "job": "Legal Operations",
+    "city": "Berlin",
+    "avatar": "/images/authors/maja-lind.jpg",
+    "imgAlt": "Headshot of a person smiling",
+    "slug": "maja-lind",
+    "biography": {
+      "summary": "Maja writes about practical legal workflows and scaling quality in fast-moving teams.",
+      "body": "From contract review pipelines to consistent clause libraries, her focus is the unglamorous details that make legal work actually work."
+    },
+    "articles": [
+      {
+        "title": "Source Discipline: How We Decide What to Cite (and What to Ignore)",
+        "popular": false,
+        "description": "Not all sources are equal. In legal work, the difference between “helpful” and “wrong” is usually the source, not the wording.",
+        "date": "30 January 2026",
+        "read": "5 mins",
+        "label": "Research",
+        "img": "/images/articles/preview/source-discipline.jpg",
+        "imgAlt": "Highlighted text on paper",
+        "slug": "source-discipline",
+        "content": [
+          {
+            "img": "/images/articles/single-post/source-discipline.jpg",
+            "summary": "Verdictu prioritizes primary sources (laws, official guidance, court decisions) and treats commentary carefully."
+          },
+          {
+            "section1": "### The hierarchy (simplified)\n\n1) Statutes / regulations / official registers\n2) Court decisions (where relevant)\n3) Official guidance (ministries, agencies)\n4) Reputable secondary sources (legal publishers)\n5) Blogs / random summaries (used cautiously)\n\n### Why this matters\n\nLegal information is often repeated incorrectly online. The assistant should not “average” sources. It should privilege authority."
+          },
+          {
+            "quote": [
+              "If you can’t explain why a source is credible, don’t build your product on it.",
+              "Maja Lind"
+            ]
+          },
+          {
+            "summary2": "Citations aren’t decoration—they’re the mechanism that lets users verify and trust the answer."
+          },
+          {
+            "section2": "### Product implication\n\nIn General mode, we cite sources close to the claims.\nIn Compare mode, we cite the document text (quoted) and then clearly separate analysis.\nIn Draft mode, we cite only when a draft depends on a rule, and we label it as an assumption if it’s not verified.\n\n### The takeaway\n\nMost “legal AI reliability” is just source discipline, encoded into UI and defaults."
+          }
+        ]
+      }
+    ]
+  }
+]
