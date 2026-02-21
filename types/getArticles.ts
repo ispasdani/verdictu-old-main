@@ -16,6 +16,7 @@ export type Article = {
   read: string;
   label: string;
   img: string;
+  video: string;
   imgAlt: string;
   slug: string;
   content: ArticleBlock[];

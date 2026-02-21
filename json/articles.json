@@ -20,7 +20,8 @@
         "date": "18 February 2026",
         "read": "6 mins",
         "label": "Product",
-        "img": "/images/articles/preview/jurisdiction-first.jpg",
+        "img": "/videos/presentation-video.mp4",
+        "video": "/videos/presentation-video.mp4",
         "imgAlt": "A minimal desk setup with legal books and a laptop",
         "slug": "jurisdiction-first-answers",
         "content": [

@@ -1,9 +1,10 @@
 "use client";
 
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { Play, Pause } from "lucide-react";
+
 import { useArticleContext } from "@/context/article-context";
-import Loading from "@/components/marketing-sections/video-presentation/loading";
 import {
   getAllArticlesWithAuthors,
   getHeroImage,
@@ -13,19 +14,38 @@ import {
 export default function VideoPresentation() {
   const { data } = useArticleContext();
 
-  if (!data?.length) return <Loading />;
-
-  const all = getAllArticlesWithAuthors(data).sort((x, y) => {
-    return (
-      parseHumanDate(y.article.date).getTime() -
-      parseHumanDate(x.article.date).getTime()
+  const latest = useMemo(() => {
+    const all = getAllArticlesWithAuthors(data).sort(
+      (x, y) =>
+        parseHumanDate(y.article.date).getTime() -
+        parseHumanDate(x.article.date).getTime(),
     );
-  });
-
-  const latest = all[0];
-  if (!latest) return <Loading />;
+    return all[0];
+  }, [data]);
 
   const latestArticle = latest.article;
+  const poster = getHeroImage(latestArticle);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const togglePlay = async () => {
+    const v = videoRef.current;
+    if (!v) return;
+
+    if (v.paused) {
+      try {
+        await v.play();
+        setIsPlaying(true);
+      } catch {
+        // autoplay/play can fail on some browsers until user interacts;
+        // click is an interaction, but we still keep this guard.
+      }
+    } else {
+      v.pause();
+      setIsPlaying(false);
+    }
+  };
 
   return (
     <div className="flex flex-col-reverse sm:flex-col gap-6 md:gap-12 py-6 md:py-10 max-w-[95rem] w-full mx-auto">
@@ -67,15 +87,36 @@ export default function VideoPresentation() {
           </article>
         </article>
 
-        <div>
-          <Image
-            className="w-full object-cover aspect-[9/6]"
-            src={getHeroImage(latestArticle)}
-            alt={latestArticle.imgAlt}
-            width={1488}
-            height={992}
-            priority
+        {/* VIDEO */}
+        <div className="relative w-full aspect-[9/6] overflow-hidden rounded-xl bg-black">
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover cursor-pointer"
+            src={latestArticle.video}
+            poster={poster}
+            playsInline
+            muted
+            loop
+            autoPlay
+            preload="metadata"
+            onClick={togglePlay}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
           />
+
+          {/* Overlay play/pause button */}
+          <button
+            type="button"
+            onClick={togglePlay}
+            className="absolute bottom-4 left-4 inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/90 hover:bg-white transition shadow"
+            aria-label={isPlaying ? "Pause video" : "Play video"}
+          >
+            {isPlaying ? (
+              <Pause className="w-5 h-5" />
+            ) : (
+              <Play className="w-5 h-5" />
+            )}
+          </button>
         </div>
       </article>
     </div>
