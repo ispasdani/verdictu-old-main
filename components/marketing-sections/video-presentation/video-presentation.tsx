@@ -48,7 +48,7 @@ export default function VideoPresentation() {
   };
 
   return (
-    <div className="flex flex-col-reverse sm:flex-col gap-6 md:gap-12 py-6 md:py-10 max-w-[95rem] w-full mx-auto">
+    <div className="flex flex-col-reverse sm:flex-col gap-6 md:gap-12 py-6 md:py-10 max-w-[95rem] w-full mx-auto px-4 lg:pt-0">
       <article className="flex flex-col-reverse sm:flex-col gap-6 md:gap-12">
         <article className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
           <h2 className="text-subtitle">
