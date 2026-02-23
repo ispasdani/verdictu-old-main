@@ -1,4 +1,4 @@
-import type { Author, Article } from "@/types/getArticles";
+import type { Author, Article } from "@/utils/getArticles";
 
 export function parseHumanDate(dateStr: string) {
   // expects: "18 February 2026" OR "16 September 2023"

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArticleContext } from "@/context/article-context";
-import { getArticles } from "@/types/getArticles";
+import { getArticles } from "@/utils/getArticles";
 
 export default function ArticleContextProvider({
   children,

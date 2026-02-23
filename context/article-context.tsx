@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { Author } from "@/types/getArticles";
+import type { Author } from "@/utils/getArticles";
 
 type ArticleContextType = { data: Author[] };
 
