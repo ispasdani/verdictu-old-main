@@ -1,0 +1,86 @@
+[
+  {
+    "id": 1,
+    "title": "Jurisdiction-First Answers",
+    "img": "/images/features/jurisdiction-first.webp",
+    "imgAlt": "A clean UI card showing a jurisdiction selector and citations",
+    "date": "23 February 2026",
+    "duration": "30 sec",
+    "episode": "Feature 01",
+    "slug": "jurisdiction-first-answers",
+    "content": [
+      {
+        "summary": "Verdictu starts every response by locking the jurisdiction. No more mixing Danish rules with German courts.",
+        "section1": "Pick a country (and optionally region/court level) before you ask. The assistant then uses the correct legal framework and labels what is EU-wide vs national implementation.",
+        "quote": [
+          "If you don’t anchor jurisdiction first, legal AI becomes confident nonsense.",
+          "Verdictu Principle"
+        ],
+        "section2": "Result: answers you can actually trust—because every claim points back to the right system and the right source."
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Source-Backed Clarity",
+    "img": "/images/features/source-backed.webp",
+    "imgAlt": "A document with highlighted citations next to a response",
+    "date": "23 February 2026",
+    "duration": "45 sec",
+    "episode": "Feature 02",
+    "slug": "source-backed-clarity",
+    "content": [
+      {
+        "summary": "Every important claim can be traced to a source. The user doesn’t have to “take AI’s word for it.”",
+        "section1": "Verdictu prioritizes primary sources: official registers, ministries, agencies, and courts. When sources conflict or are uncertain, we say so and show where the truth lives.",
+        "quote": [
+          "Citations aren’t decoration—they’re the trust mechanism.",
+          "Verdictu Editorial"
+        ],
+        "section2": "Result: less risk, faster verification, and a clear path from question → authority → answer."
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "title": "Compare Mode for Documents",
+    "img": "/images/features/compare-mode.webp",
+    "imgAlt": "Two documents side-by-side with differences highlighted",
+    "date": "23 February 2026",
+    "duration": "40 sec",
+    "episode": "Feature 03",
+    "slug": "compare-mode-documents",
+    "content": [
+      {
+        "summary": "Drop in two documents and ask what changed, what’s risky, and what’s missing.",
+        "section1": "Verdictu summarizes differences by topic (payment, termination, liability, privacy). It separates quoted text from analysis so you can review without confusion.",
+        "quote": [
+          "Tell us your goal: reduce risk, speed review, or ensure compliance.",
+          "Verdictu Workflow Tip"
+        ],
+        "section2": "Result: faster reviews, fewer missed clause changes, and clearer next actions."
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "title": "Draft Mode Templates",
+    "img": "/images/features/draft-mode.webp",
+    "imgAlt": "A structured editor with templates and sections",
+    "date": "23 February 2026",
+    "duration": "50 sec",
+    "episode": "Feature 04",
+    "slug": "draft-mode-templates",
+    "content": [
+      {
+        "summary": "Start from a template and get a clean first draft with the right tone and structure.",
+        "section1": "Use predefined templates (letters, clauses, short memos). Ask for variants (formal/friendly), and export when ready.",
+        "quote": [
+          "AI drafts best when you give constraints: jurisdiction, audience, goal.",
+          "Verdictu Tip"
+        ],
+        "section2": "Result: polished drafts faster—with your facts and your control."
+      }
+    ]
+  }
+]
