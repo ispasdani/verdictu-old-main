@@ -112,6 +112,40 @@
             "section2": "### Draft mode\n\nUse this when you need:\n- First drafts (letters, clauses, emails)\n- Rewrites for tone/clarity\n- Template-based drafting\n\nOutput style:\n- Structured sections\n- Optional variants (formal vs friendly)\n- A list of assumptions to confirm\n\n### The takeaway\n\nWhen users pick the right mode, you reduce hallucinations and increase usefulness. That’s the whole game."
           }
         ]
+      },
+      {
+        "title": "Transparent by Design: Showing Assumptions Before Conclusions",
+        "popular": true,
+        "popularity": 3,
+        "description": "Legal answers break when hidden assumptions go unnoticed. Verdictu makes assumptions explicit before drawing conclusions — so users understand what the answer depends on, not just what it says.",
+        "date": "24 February 2026",
+        "read": "6 mins",
+        "label": "Product",
+        "img": "/videos/presentation-video.mp4",
+        "video": "/videos/presentation-video.mp4",
+        "imgAlt": "Notebook with structured legal notes and highlighted assumptions",
+        "slug": "transparent-by-design",
+        "content": [
+          {
+            "img": "/images/articles/single-post/transparent-design.jpg",
+            "summary": "Every legal answer rests on assumptions — about timing, jurisdiction, contract terms, or procedural posture. Most AI tools hide those assumptions. Verdictu surfaces them upfront so users can see what the conclusion depends on."
+          },
+          {
+            "section1": "### The hidden risk in legal AI\n\nA legal answer can be technically correct — and still wrong for the user — if one assumption is off.\n\nFor example:\n- Was the contract signed before or after a regulatory change?\n- Does the dispute fall under consumer or commercial law?\n- Is the deadline calculated in calendar or working days?\n\nInstead of guessing, Verdictu structures responses like this:\n\n1) Stated assumptions\n2) What changes if those assumptions differ\n3) The conditional answer\n\nThis mirrors how careful lawyers think — and prevents overconfidence."
+          },
+          {
+            "quote": [
+              "Clarity isn’t just about the answer. It’s about the conditions behind the answer.",
+              "Verdictu Editorial"
+            ]
+          },
+          {
+            "summary2": "When assumptions are visible, users gain control. They can correct missing facts, refine the scope, or identify where risk truly lies. That transparency builds trust far more than polished wording ever could."
+          },
+          {
+            "section2": "### Practical output structure\n\n- We label assumptions clearly (“Assuming X…”)\n- We show alternative outcomes where facts change\n- We flag deadlines explicitly\n- We highlight what evidence would confirm the conclusion\n\n### The takeaway\n\nTrustworthy legal AI doesn’t hide uncertainty. It maps it. By showing assumptions before conclusions, Verdictu keeps answers honest, adaptable, and aligned with real-world use."
+          }
+        ]
       }
     ]
   },
