@@ -30,5 +30,13 @@
     "role": "Consumer, Dublin",
     "outcome": "Informed decision",
     "category": "Consumer Rights"
+  },
+  {
+    "id": 5,
+    "quote": "I received a sudden visa rejection and felt completely overwhelmed. Verdictu explained my appeal options clearly, cited the relevant regulations, and helped me respond within the deadline.",
+    "name": "Elena M.",
+    "role": "Graduate Student, Madrid",
+    "outcome": "Appeal submitted",
+    "category": "Immigration Law"
   }
 ]
