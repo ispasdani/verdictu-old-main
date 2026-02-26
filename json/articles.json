@@ -146,6 +146,40 @@
             "section2": "### Practical output structure\n\n- We label assumptions clearly (“Assuming X…”)\n- We show alternative outcomes where facts change\n- We flag deadlines explicitly\n- We highlight what evidence would confirm the conclusion\n\n### The takeaway\n\nTrustworthy legal AI doesn’t hide uncertainty. It maps it. By showing assumptions before conclusions, Verdictu keeps answers honest, adaptable, and aligned with real-world use."
           }
         ]
+      },
+      {
+        "title": "Deadlines Change Everything: Designing for Time-Sensitive Law",
+        "popular": true,
+        "popularity": 4,
+        "description": "In law, missing a deadline can erase your strongest argument. Verdictu treats time as a first-class variable — not an afterthought — so users don’t lose rights because a clock ran out.",
+        "date": "25 February 2026",
+        "read": "7 mins",
+        "label": "Product",
+        "img": "/videos/presentation-video.mp4",
+        "video": "/videos/presentation-video.mp4",
+        "imgAlt": "Calendar next to legal documents with marked deadlines",
+        "slug": "deadlines-change-everything",
+        "content": [
+          {
+            "img": "/images/articles/single-post/deadlines.jpg",
+            "summary": "Many legal rights are conditional on timing: appeal periods, notice requirements, limitation periods, cooling-off windows. An answer without time context is incomplete."
+          },
+          {
+            "section1": "### Why timing is structural, not cosmetic\n\nTwo identical disputes can have completely different outcomes depending on timing:\n\n- An appeal filed on day 29 may succeed.\n- The same appeal on day 31 may be rejected automatically.\n\nVerdictu always asks:\n\n1) When did the event occur?\n2) What jurisdiction’s calculation rules apply?\n3) Are there exceptions or extensions?\n\nWithout these, even a well-sourced answer can mislead."
+          },
+          {
+            "quote": [
+              "In legal disputes, the calendar is often more powerful than the argument.",
+              "Verdictu Editorial"
+            ]
+          },
+          {
+            "summary2": "Time sensitivity isn’t just about court filings. It affects consumer cancellations, landlord notices, employment claims, regulatory appeals, and more. Designing for time means designing for reality."
+          },
+          {
+            "section2": "### How Verdictu handles deadlines\n\n- We highlight relevant limitation periods clearly.\n- We separate statutory deadlines from contractual ones.\n- We note whether deadlines are strict or discretionary.\n- We include a ‘What happens if late?’ section where relevant.\n\n### The takeaway\n\nLegal confidence comes from knowing not only *what* you can do — but *by when*. By treating deadlines as core data, Verdictu protects users from preventable loss and turns urgency into structured action."
+          }
+        ]
       }
     ]
   },
