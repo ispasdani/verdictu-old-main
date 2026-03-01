@@ -1,12 +1,11 @@
 import Link from "next/link";
-import React from "react";
-import NewsTicker from "../marketing-general/news-ticker/news-ticker";
 import FooterSocialSharing from "../marketing-general/footer-social-sharing";
+import FooterNewsTicker from "../marketing-general/footer-news-ticker";
 
 function Footer() {
   return (
     <footer className="bg-black overflow-hidden">
-      <NewsTicker />
+      <FooterNewsTicker />
       <div className="max-w-[95rem] mx-auto px-6">
         <div className="py-8 xl:py-[128px] grid grid-cols-1 2xl:grid-cols-2 gap-2 md:gap-12 xl:gap-32 items-center">
           <h2 className="uppercase text-footer-title">
