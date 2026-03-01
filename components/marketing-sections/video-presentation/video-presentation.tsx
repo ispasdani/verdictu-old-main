@@ -15,15 +15,12 @@ export default function VideoPresentation() {
   const { data } = useArticleContext();
 
   const latest = useMemo(() => {
-    const all = getAllArticlesWithAuthors(data).sort(
-      (x, y) =>
-        parseHumanDate(y.article.date).getTime() -
-        parseHumanDate(x.article.date).getTime(),
-    );
+    const all = getAllArticlesWithAuthors(data);
     return all[0];
   }, [data]);
 
   const latestArticle = latest.article;
+  console.log(latestArticle);
   const poster = getHeroImage(latestArticle);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
