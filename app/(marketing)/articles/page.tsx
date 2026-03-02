@@ -1,4 +1,7 @@
 import PageTitle from "@/components/marketing-general/page-title";
+import ArticlesList from "@/components/marketing-sections/articles-list/articles-list";
+import Loading from "@/components/marketing-sections/articles-list/loading";
+import { Suspense } from "react";
 
 export const metadata = {
   title: "Articles  | Fyrre Magazine",
@@ -15,6 +18,9 @@ function ArticlesPage() {
       >
         Articles
       </PageTitle>
+      <Suspense fallback={<Loading />}>
+        <ArticlesList />
+      </Suspense>
     </main>
   );
 }
