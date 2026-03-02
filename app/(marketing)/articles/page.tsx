@@ -1,9 +1,8 @@
 import PageTitle from "@/components/marketing-general/page-title";
-import { Suspense } from "react";
 
 export const metadata = {
-  title: "Podcasts  | Fyrre Magazine",
-  description: "The latest podcasts list",
+  title: "Articles  | Fyrre Magazine",
+  description: "The latest articles list",
 };
 
 function ArticlesPage() {
@@ -11,10 +10,10 @@ function ArticlesPage() {
     <main>
       <PageTitle
         className="sr-only"
-        imgSrc="/images/titles/Podcast.svg"
-        imgAlt="The word 'Podcast' in bold, uppercase lettering"
+        imgSrc="/images/titles/Articles.svg"
+        imgAlt="The word 'Articles' in bold, uppercase lettering"
       >
-        Podcast
+        Articles
       </PageTitle>
     </main>
   );
