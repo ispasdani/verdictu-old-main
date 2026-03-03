@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+
 const PLANS = ["Basic", "Pro", "Companies", "Credits"];
 
 type CellValue = string | boolean;
@@ -74,11 +76,11 @@ function Cell({ value, highlighted }: { value: CellValue; highlighted: boolean }
 
 export default function PricingComparison() {
   return (
-    <div className="max-w-[95rem] w-full mx-auto px-4 overflow-x-auto">
+    <div className="max-w-380 w-full mx-auto px-4 overflow-x-auto">
       <h2 className="text-subheading mt-4 mb-8 md:mt-12 md:mb-16">
         Compare Plans
       </h2>
-      <table className="w-full border-collapse border border-black min-w-[640px]">
+      <table className="w-full border-collapse border border-black min-w-160">
         <thead>
           <tr>
             <th className="px-4 py-5 text-left text-sm font-semibold uppercase tracking-widest border-b border-black w-[30%]">
@@ -98,9 +100,9 @@ export default function PricingComparison() {
         </thead>
         <tbody>
           {ROWS.map((row, idx) => (
-            <>
+            <Fragment key={idx}>
               {row.category && (
-                <tr key={`cat-${row.category}`}>
+                <tr>
                   <td
                     colSpan={5}
                     className="px-4 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground bg-muted border-b border-black"
@@ -109,7 +111,7 @@ export default function PricingComparison() {
                   </td>
                 </tr>
               )}
-              <tr key={idx}>
+              <tr>
                 <td className="px-4 py-4 text-sm border-b border-black/10">
                   {row.feature}
                 </td>
@@ -117,7 +119,7 @@ export default function PricingComparison() {
                   <Cell key={i} value={val} highlighted={i === 1} />
                 ))}
               </tr>
-            </>
+            </Fragment>
           ))}
         </tbody>
       </table>
