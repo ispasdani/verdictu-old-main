@@ -13,7 +13,7 @@ function ArticlesPage() {
     <main>
       <PageTitle
         className="sr-only"
-        imgSrc="/images/titles/Articles.svg"
+        imgSrc="/images/titles/articles.svg"
         imgAlt="The word 'Articles' in bold, uppercase lettering"
       >
         Articles
