@@ -1,11 +1,33 @@
 "use client";
 
 import menu from "@/data/menu";
-import { products } from "@/data/products";
-import { ChevronDown } from "lucide-react";
+import featuresData from "@/json/features.json";
+import {
+  BookOpen,
+  ChevronDown,
+  FileEdit,
+  FileText,
+  GitCompare,
+  HardDrive,
+  Scale,
+  ShieldCheck,
+  Workflow,
+} from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import SocialSharing from "./social-sharing";
+
+const featureIcons: Record<string, ReactNode> = {
+  "jurisdiction-first-answers": <Scale className="size-4" />,
+  "source-backed-clarity": <BookOpen className="size-4" />,
+  "compare-mode-documents": <GitCompare className="size-4" />,
+  "draft-mode-templates": <FileText className="size-4" />,
+  "smart-workflows": <Workflow className="size-4" />,
+  "ai-text-editor": <FileEdit className="size-4" />,
+  "local-private-ai": <HardDrive className="size-4" />,
+  "security": <ShieldCheck className="size-4" />,
+};
 
 const MobileNav = () => {
   const [productsOpen, setProductsOpen] = useState(false);
@@ -30,21 +52,21 @@ const MobileNav = () => {
 
         {productsOpen && (
           <div className="flex flex-col gap-1 pl-2 border-l border-border">
-            {products.map((product) => (
+            {featuresData.map((feature) => (
               <Link
-                key={product.href}
-                href={product.href}
+                key={feature.slug}
+                href={`/features/${feature.slug}`}
                 className="flex items-start gap-2.5 py-2"
               >
                 <div className="mt-0.5 shrink-0 text-muted-foreground">
-                  {product.icon}
+                  {featureIcons[feature.slug]}
                 </div>
                 <div>
                   <div className="text-sm font-medium leading-none">
-                    {product.title}
+                    {feature.title}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    {product.description}
+                    {feature.content[0].summary}
                   </div>
                 </div>
               </Link>

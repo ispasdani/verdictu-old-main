@@ -1,8 +1,30 @@
 import menu from "@/data/menu";
-import { products } from "@/data/products";
-import { ChevronDown } from "lucide-react";
+import {
+  BookOpen,
+  FileEdit,
+  FileText,
+  GitCompare,
+  HardDrive,
+  Scale,
+  ShieldCheck,
+  Workflow,
+} from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
+import featuresData from "@/json/features.json";
+import { ChevronDown } from "lucide-react";
 import SocialSharing from "./social-sharing";
+
+const featureIcons: Record<string, ReactNode> = {
+  "jurisdiction-first-answers": <Scale className="size-4" />,
+  "source-backed-clarity": <BookOpen className="size-4" />,
+  "compare-mode-documents": <GitCompare className="size-4" />,
+  "draft-mode-templates": <FileText className="size-4" />,
+  "smart-workflows": <Workflow className="size-4" />,
+  "ai-text-editor": <FileEdit className="size-4" />,
+  "local-private-ai": <HardDrive className="size-4" />,
+  "security": <ShieldCheck className="size-4" />,
+};
 
 const DesktopNav = () => {
   return (
@@ -21,21 +43,21 @@ const DesktopNav = () => {
         <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 pointer-events-none group-hover/products:opacity-100 group-hover/products:pointer-events-auto transition-opacity duration-150 z-50">
           <div className="w-140 rounded-xl border border-border bg-background p-3 shadow-xl">
             <div className="grid grid-cols-2 gap-1">
-              {products.map((product) => (
+              {featuresData.map((feature) => (
                 <Link
-                  key={product.href}
-                  href={product.href}
+                  key={feature.slug}
+                  href={`/features/${feature.slug}`}
                   className="flex items-start gap-3 rounded-lg p-3 hover:bg-muted transition-colors group/card"
                 >
                   <div className="mt-0.5 shrink-0 text-muted-foreground group-hover/card:text-foreground transition-colors">
-                    {product.icon}
+                    {featureIcons[feature.slug]}
                   </div>
                   <div>
                     <div className="text-sm font-medium leading-none">
-                      {product.title}
+                      {feature.title}
                     </div>
                     <div className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                      {product.description}
+                      {feature.content[0].summary}
                     </div>
                   </div>
                 </Link>

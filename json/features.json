@@ -82,5 +82,89 @@
         "section2": "Result: polished drafts faster—with your facts and your control."
       }
     ]
+  },
+  {
+    "id": 5,
+    "title": "Smart Workflows",
+    "img": "/images/features/workflows.webp",
+    "imgAlt": "A visual workflow diagram connecting document steps and approvals",
+    "date": "1 March 2026",
+    "duration": "45 sec",
+    "episode": "Feature 05",
+    "slug": "smart-workflows",
+    "content": [
+      {
+        "summary": "Legal work is repetitive by design. Workflows let you encode the repetition once—and run it reliably every time.",
+        "section1": "Build multi-step sequences: intake → research → draft → review → export. Each step can trigger the next automatically, with the right context carried through. No copy-pasting between tools.",
+        "quote": [
+          "The goal isn't speed for its own sake—it's removing the steps that add no value.",
+          "Verdictu Product"
+        ],
+        "section2": "Result: less manual coordination, fewer errors, and a clear audit trail from question to completed document."
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "title": "AI Text Editor",
+    "img": "/images/features/ai-editor.webp",
+    "imgAlt": "A clean document editor with inline AI suggestions highlighted",
+    "date": "1 March 2026",
+    "duration": "40 sec",
+    "episode": "Feature 06",
+    "slug": "ai-text-editor",
+    "content": [
+      {
+        "summary": "Write legal documents the way you think—then let the AI improve structure, tone, and accuracy without leaving the editor.",
+        "section1": "Inline suggestions appear as you type. Accept, reject, or ask for alternatives. The editor understands jurisdiction context, so suggestions stay legally relevant—not just grammatically polished.",
+        "quote": [
+          "A good legal editor doesn't change what you mean. It makes sure the words say exactly that.",
+          "Verdictu Editorial"
+        ],
+        "section2": "Result: first drafts in minutes, not hours—with jurisdiction-aware suggestions you control at every step."
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "title": "Local Private AI",
+    "img": "/images/features/local-ai.webp",
+    "imgAlt": "A server icon with a lock, representing on-device AI processing",
+    "date": "1 March 2026",
+    "duration": "35 sec",
+    "episode": "Feature 07",
+    "slug": "local-private-ai",
+    "content": [
+      {
+        "summary": "Run the AI entirely on your machine. No data sent to external servers. No exposure. No exceptions.",
+        "section1": "Local Private AI is built for firms and teams where data sovereignty is non-negotiable. The model runs in your environment—on your hardware or your private cloud. Client documents, internal memos, and sensitive queries never leave your control.",
+        "quote": [
+          "Privacy isn't a feature you add on. It's an architecture decision you make from day one.",
+          "Verdictu Engineering"
+        ],
+        "section2": "Result: full AI capability with zero data leakage—suitable for regulated industries, confidential matters, and jurisdictions with strict data residency requirements."
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "title": "100% Security",
+    "img": "/images/features/security.webp",
+    "imgAlt": "A shield icon over a document, representing encrypted legal data",
+    "date": "1 March 2026",
+    "duration": "35 sec",
+    "episode": "Feature 08",
+    "slug": "security",
+    "content": [
+      {
+        "summary": "Every document, query, and response is protected end-to-end. Security is not an add-on tier—it is the default.",
+        "section1": "Verdictu uses end-to-end encryption for data in transit and at rest. Access is role-scoped, every action is logged, and the architecture is zero-knowledge by design. Audit trails are exportable and tamper-evident.",
+        "quote": [
+          "Your clients trust you with their most sensitive information. We treat it accordingly.",
+          "Verdictu Security"
+        ],
+        "section2": "Result: compliance-ready infrastructure, a clear chain of custody for every document, and the confidence to handle matters where stakes are highest."
+      }
+    ]
   }
 ]
