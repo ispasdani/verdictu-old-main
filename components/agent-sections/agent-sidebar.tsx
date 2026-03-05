@@ -108,182 +108,165 @@ const PERIODS: ChatPeriod[] = ["Today", "Yesterday", "Last 7 days"];
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function AgentSidebar({ children }: { children: React.ReactNode }) {
+export function AgentSidebar() {
   const pathname = usePathname();
   const [activeWorkspace, setActiveWorkspace] = useState(WORKSPACES[0]);
 
   return (
-    <TooltipProvider>
-      <SidebarProvider>
-        <Sidebar>
-          {/* ── Header: workspace selector ── */}
-          <SidebarHeader>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <SidebarMenuButton
-                      size="lg"
-                      className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                        <img
-                          src="/icons/verdictu-black.svg"
-                          alt=""
-                          className="h-4 w-4 object-contain invert"
-                          onError={(e) => {
-                            (
-                              e.currentTarget as HTMLImageElement
-                            ).style.display = "none";
-                          }}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-left leading-none">
-                        <span className="text-sm font-semibold">
-                          {activeWorkspace.name}
-                        </span>
-                        <span className="text-xs text-sidebar-foreground/60">
-                          Workspace
-                        </span>
-                      </div>
-                      <ChevronDown className="ml-auto shrink-0 text-sidebar-foreground/50" />
-                    </SidebarMenuButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    side="bottom"
-                    className="w-52"
-                  >
-                    {WORKSPACES.map((ws) => (
-                      <DropdownMenuItem
-                        key={ws.id}
-                        onSelect={() => setActiveWorkspace(ws)}
-                        className={cn(
-                          ws.id === activeWorkspace.id && "font-medium",
-                        )}
-                      >
-                        {ws.name}
-                      </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <Plus className="mr-2" />
-                      Create workspace
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarHeader>
-
-          <SidebarContent>
-            {/* ── Features ── */}
-            <SidebarGroup>
-              <SidebarGroupLabel>Features</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {FEATURES.map((feature) => {
-                    const Icon = feature.icon;
-                    const isActive = pathname === feature.href;
-                    return (
-                      <SidebarMenuItem key={feature.id}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isActive}
-                          tooltip={feature.label}
-                          className=""
-                        >
-                          <Link href={feature.href}>
-                            <Icon />
-                            <span>{feature.label}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            <SidebarSeparator />
-
-            {/* ── History ── */}
-            <SidebarGroup>
-              <SidebarGroupLabel>History</SidebarGroupLabel>
-              <SidebarGroupContent>
-                {PERIODS.map((period) => {
-                  const chats = MOCK_CHATS.filter((c) => c.period === period);
-                  if (!chats.length) return null;
-                  return (
-                    <div key={period}>
-                      <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
-                        {period}
-                      </p>
-                      <SidebarMenu>
-                        {chats.map((chat) => {
-                          const isActive = pathname === `/chat/${chat.id}`;
-                          return (
-                            <SidebarMenuItem key={chat.id}>
-                              <SidebarMenuButton
-                                asChild
-                                isActive={isActive}
-                                tooltip={chat.title}
-                                className="font-normal"
-                              >
-                                <Link href={`/chat/${chat.id}`}>
-                                  <MessageSquare className="text-sidebar-foreground/50" />
-                                  <span>{chat.title}</span>
-                                </Link>
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          );
-                        })}
-                      </SidebarMenu>
-                    </div>
-                  );
-                })}
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-
-          {/* ── Footer: help + user ── */}
-          <SidebarFooter>
-            <SidebarSeparator className="mb-1" />
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Help & Support">
-                  <HelpCircle />
-                  <span>Help &amp; Support</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Clerk user avatar — mocked */}
-              <SidebarMenuItem>
-                <SidebarMenuButton size="lg" tooltip="Account settings">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-sm font-medium select-none">
-                    JD
+    <Sidebar>
+      {/* ── Header: workspace selector ── */}
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                    <img
+                      src="/icons/verdictu-black.svg"
+                      alt=""
+                      className="h-4 w-4 object-contain invert"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display =
+                          "none";
+                      }}
+                    />
                   </div>
                   <div className="flex flex-col gap-0.5 text-left leading-none">
-                    <span className="text-sm font-medium">John Doe</span>
+                    <span className="text-sm font-semibold">
+                      {activeWorkspace.name}
+                    </span>
                     <span className="text-xs text-sidebar-foreground/60">
-                      john@acmelaw.com
+                      Workspace
                     </span>
                   </div>
-                  <Settings className="ml-auto shrink-0 text-sidebar-foreground/50" />
+                  <ChevronDown className="ml-auto shrink-0 text-sidebar-foreground/50" />
                 </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
-        </Sidebar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="bottom" className="w-52">
+                {WORKSPACES.map((ws) => (
+                  <DropdownMenuItem
+                    key={ws.id}
+                    onSelect={() => setActiveWorkspace(ws)}
+                    className={cn(
+                      ws.id === activeWorkspace.id && "font-medium",
+                    )}
+                  >
+                    {ws.name}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Plus className="mr-2" />
+                  Create workspace
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
 
-        {/* ── Main area ── */}
-        <SidebarInset>
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger />
-          </header>
-          {children}
-        </SidebarInset>
-      </SidebarProvider>
-    </TooltipProvider>
+      <SidebarContent>
+        {/* ── Features ── */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Features</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {FEATURES.map((feature) => {
+                const Icon = feature.icon;
+                const isActive = pathname === feature.href;
+                return (
+                  <SidebarMenuItem key={feature.id}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={feature.label}
+                      className="font-[400]"
+                    >
+                      <Link href={feature.href}>
+                        <Icon />
+                        <span>{feature.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        {/* ── History ── */}
+        <SidebarGroup>
+          <SidebarGroupLabel>History</SidebarGroupLabel>
+          <SidebarGroupContent>
+            {PERIODS.map((period) => {
+              const chats = MOCK_CHATS.filter((c) => c.period === period);
+              if (!chats.length) return null;
+              return (
+                <div key={period}>
+                  <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
+                    {period}
+                  </p>
+                  <SidebarMenu>
+                    {chats.map((chat) => {
+                      const isActive = pathname === `/chat/${chat.id}`;
+                      return (
+                        <SidebarMenuItem key={chat.id}>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={isActive}
+                            tooltip={chat.title}
+                            className="font-normal"
+                          >
+                            <Link href={`/chat/${chat.id}`}>
+                              <MessageSquare className="text-sidebar-foreground/50" />
+                              <span>{chat.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </div>
+              );
+            })}
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      {/* ── Footer: help + user ── */}
+      <SidebarFooter>
+        <SidebarSeparator className="mb-1" />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Help & Support">
+              <HelpCircle />
+              <span>Help &amp; Support</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Clerk user avatar — mocked */}
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" tooltip="Account settings">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-sm font-medium select-none">
+                JD
+              </div>
+              <div className="flex flex-col gap-0.5 text-left leading-none">
+                <span className="text-sm font-medium">John Doe</span>
+                <span className="text-xs text-sidebar-foreground/60">
+                  john@acmelaw.com
+                </span>
+              </div>
+              <Settings className="ml-auto shrink-0 text-sidebar-foreground/50" />
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

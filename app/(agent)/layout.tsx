@@ -1,4 +1,6 @@
 import { AgentSidebar } from "@/components/agent-sections/agent-sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default function AgentLayout({
   children,
@@ -7,7 +9,12 @@ export default function AgentLayout({
 }) {
   return (
     <div className="font-inter">
-      <AgentSidebar>{children}</AgentSidebar>
+      <TooltipProvider>
+        <SidebarProvider>
+          <AgentSidebar />
+          {children}
+        </SidebarProvider>
+      </TooltipProvider>
     </div>
   );
 }
