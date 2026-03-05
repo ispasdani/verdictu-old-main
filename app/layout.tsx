@@ -1,6 +1,9 @@
 import Container from "@/components/marketing-general/container";
 import "./globals.css";
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 import ArticleContextProvider from "./providers/article-context-provider";
 
 export const metadata: Metadata = {
@@ -68,7 +71,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="en" className={`scroll-smooth ${inter.variable}`}>
       <head>
         <link
           rel="icon"

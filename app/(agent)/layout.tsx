@@ -1,9 +1,13 @@
-import AgentShell from "@/components/agent/agent-shell";
+import { AgentSidebar } from "@/components/agent-sections/agent-sidebar";
 
 export default function AgentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AgentShell>{children}</AgentShell>;
+  return (
+    <div className="font-inter">
+      <AgentSidebar>{children}</AgentSidebar>
+    </div>
+  );
 }
