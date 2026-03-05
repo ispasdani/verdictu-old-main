@@ -1,4 +1,4 @@
-import AIChatInput from "../marketing-general/aiChatInput";
+import AIChatInput from "../agent-general/aiChatInput";
 import NewsLoading from "../marketing-general/news-ticker/loading";
 import NewsTicker from "../marketing-general/news-ticker/news-ticker";
 import PageTitle from "../marketing-general/page-title";
