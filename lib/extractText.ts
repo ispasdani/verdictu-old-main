@@ -23,7 +23,7 @@ export async function extractText(file: File): Promise<string> {
   if (ext === "pdf") {
     const pdfjsLib = await import("pdfjs-dist");
     // Use the matching version from cdnjs to avoid worker mismatch
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
     const buf = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buf) });
