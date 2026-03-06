@@ -24,15 +24,11 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarProvider,
   SidebarSeparator,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,43 +64,15 @@ const FEATURES = [
   { id: "rulings", label: "Case Rulings", icon: Gavel, href: "/rulings" },
 ];
 
-type ChatPeriod = "Today" | "Yesterday" | "Last 7 days";
+type Chat = { id: string; title: string };
 
-const MOCK_CHATS: { id: string; title: string; period: ChatPeriod }[] = [
-  {
-    id: "1",
-    title: "Can a landlord increase rent during a fixed-term lease?",
-    period: "Today",
-  },
-  {
-    id: "2",
-    title: "Employment termination rights in Germany",
-    period: "Today",
-  },
-  {
-    id: "3",
-    title: "How to dispute an insurance claim refusal",
-    period: "Yesterday",
-  },
-  { id: "4", title: "GDPR data deletion request process", period: "Yesterday" },
-  {
-    id: "5",
-    title: "What is force majeure in a commercial contract?",
-    period: "Last 7 days",
-  },
-  {
-    id: "6",
-    title: "Tenant rights when landlord fails to make repairs",
-    period: "Last 7 days",
-  },
-  {
-    id: "7",
-    title: "Non-compete clause enforceability in Denmark",
-    period: "Last 7 days",
-  },
+// TODO: replace with useQuery(api.chats.list) from Convex
+const MOCK_CHATS: Chat[] = [
+  { id: "1", title: "Can a landlord increase rent during a fixed-term lease?" },
+  { id: "2", title: "Employment termination rights in Germany" },
+  { id: "3", title: "How to dispute an insurance claim refusal" },
+  { id: "4", title: "GDPR data deletion request process" },
 ];
-
-const PERIODS: ChatPeriod[] = ["Today", "Yesterday", "Last 7 days"];
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -204,37 +172,28 @@ export function AgentSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>History</SidebarGroupLabel>
           <SidebarGroupContent>
-            {PERIODS.map((period) => {
-              const chats = MOCK_CHATS.filter((c) => c.period === period);
-              if (!chats.length) return null;
-              return (
-                <div key={period}>
-                  <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
-                    {period}
-                  </p>
-                  <SidebarMenu>
-                    {chats.map((chat) => {
-                      const isActive = pathname === `/chat/${chat.id}`;
-                      return (
-                        <SidebarMenuItem key={chat.id}>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={isActive}
-                            tooltip={chat.title}
-                            className="font-normal"
-                          >
-                            <Link href={`/chat/${chat.id}`}>
-                              <MessageSquare className="text-sidebar-foreground/50" />
-                              <span>{chat.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </div>
-              );
-            })}
+            <SidebarMenu>
+              {MOCK_CHATS.map((chat) => {
+                const isActive = pathname === `/chat/${chat.id}`;
+                return (
+                  <SidebarMenuItem key={chat.id}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={chat.title}
+                      className="font-normal group/chat"
+                    >
+                      <Link href={`/chat/${chat.id}`}>
+                        <MessageSquare className="text-sidebar-foreground/40 group-hover/chat:text-sidebar-foreground/70 transition-colors" />
+                        <span className="text-sidebar-foreground/40 group-hover/chat:text-sidebar-foreground/70 transition-colors truncate">
+                          {chat.title}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
