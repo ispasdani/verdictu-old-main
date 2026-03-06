@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 import ArticleContextProvider from "./providers/article-context-provider";
+import { ConvexClientProvider } from "./providers/ConvexClientProvider";
 
 export const metadata: Metadata = {
   title: {
@@ -80,9 +81,11 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <ArticleContextProvider>
-          <Container>{children}</Container>
-        </ArticleContextProvider>
+        <ConvexClientProvider>
+          <ArticleContextProvider>
+            <Container>{children}</Container>
+          </ArticleContextProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   );

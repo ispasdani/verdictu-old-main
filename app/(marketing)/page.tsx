@@ -11,6 +11,8 @@ import Pricing from "@/components/marketing-sections/pricing/pricing";
 import PricingLoading from "@/components/marketing-sections/pricing/pricing-loading";
 import VideoPresentation from "@/components/marketing-sections/video-presentation/video-presentation";
 import { Suspense } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 function MarketingPage() {
   return (
