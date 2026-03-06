@@ -100,7 +100,7 @@ function CompareDocSlot({
 
   return (
     <div
-      className={`flex-1 min-h-32.5 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1.5 transition-all ${
+      className={`flex-1 min-h-32.5 border-2 border-dashed rounded-sm flex flex-col items-center justify-center gap-1.5 transition-all ${
         hasFile
           ? "border-indigo-200 bg-indigo-50/60 cursor-default"
           : "border-gray-200 hover:border-indigo-300 hover:bg-gray-50 cursor-pointer"
@@ -117,7 +117,9 @@ function CompareDocSlot({
           <span className="text-sm font-medium text-gray-800 text-center px-3 max-w-full truncate">
             {slot.name}
           </span>
-          <span className="text-xs text-gray-400">{formatBytes(slot.size)}</span>
+          <span className="text-xs text-gray-400">
+            {formatBytes(slot.size)}
+          </span>
           <button
             type="button"
             className="mt-1 flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors"
@@ -216,7 +218,11 @@ export default function AIChatInput() {
         const { extractText } = await import("@/lib/extractText");
         text = await extractText(file);
       }
-      updateAttachment(id, { status: "done", progress: 100, extractedText: text });
+      updateAttachment(id, {
+        status: "done",
+        progress: 100,
+        extractedText: text,
+      });
     } catch (err) {
       updateAttachment(id, {
         status: "error",
@@ -270,7 +276,11 @@ export default function AIChatInput() {
   const retryUpload = (id: string) => {
     const att = attachments.find((a) => a.id === id);
     if (!att) return;
-    updateAttachment(id, { status: "uploading", progress: 0, error: undefined });
+    updateAttachment(id, {
+      status: "uploading",
+      progress: 0,
+      error: undefined,
+    });
     extractTextFromFile(id, att.file);
   };
 
@@ -437,7 +447,9 @@ export default function AIChatInput() {
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <button
                       className="text-xs text-gray-700 underline underline-offset-2 disabled:text-gray-400"
-                      onClick={() => runAttachmentAction(att.id, "use_as_source")}
+                      onClick={() =>
+                        runAttachmentAction(att.id, "use_as_source")
+                      }
                       disabled={att.status !== "done"}
                       type="button"
                     >
@@ -496,7 +508,7 @@ export default function AIChatInput() {
 
       {/* Main chat bubble */}
       <div
-        className={`bg-white border border-gray-200 rounded-xl shadow-sm p-4 transition-shadow focus-within:shadow-md ${
+        className={`bg-white border border-gray-200 rounded-md shadow-sm p-4 transition-shadow focus-within:shadow-md ${
           isDragOver && mode === "General"
             ? "ring-2 ring-indigo-600 ring-offset-2"
             : ""
@@ -579,7 +591,9 @@ export default function AIChatInput() {
                 type="button"
               >
                 <Paperclip size={16} className="text-gray-700" />
-                <span className="text-sm font-medium text-gray-700">Attach</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Attach
+                </span>
               </button>
             )}
 

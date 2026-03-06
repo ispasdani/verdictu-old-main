@@ -953,7 +953,7 @@ export default function ChatPage() {
 
       {/* ── Sticky input bar at the bottom ── */}
       <div className="backdrop-blur-sm px-4 py-3">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <AIChatInput />
         </div>
       </div>
