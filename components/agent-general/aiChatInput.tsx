@@ -100,7 +100,7 @@ function CompareDocSlot({
 
   return (
     <div
-      className={`flex-1 min-h-32.5 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all ${
+      className={`flex-1 min-h-32.5 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1.5 transition-all ${
         hasFile
           ? "border-indigo-200 bg-indigo-50/60 cursor-default"
           : "border-gray-200 hover:border-indigo-300 hover:bg-gray-50 cursor-pointer"
@@ -496,7 +496,7 @@ export default function AIChatInput() {
 
       {/* Main chat bubble */}
       <div
-        className={`bg-white border border-gray-200 rounded-[24px] shadow-sm p-4 transition-shadow focus-within:shadow-md ${
+        className={`bg-white border border-gray-200 rounded-xl shadow-sm p-4 transition-shadow focus-within:shadow-md ${
           isDragOver && mode === "General"
             ? "ring-2 ring-indigo-600 ring-offset-2"
             : ""
@@ -535,7 +535,7 @@ export default function AIChatInput() {
                 onClear={() => setSlotA(EMPTY_SLOT)}
               />
               <div className="flex items-center justify-center shrink-0">
-                <span className="text-[11px] font-bold text-gray-300 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center select-none">
+                <span className="text-[11px] font-bold text-gray-300 bg-gray-100 rounded-md w-8 h-8 flex items-center justify-center select-none">
                   vs
                 </span>
               </div>
@@ -562,7 +562,7 @@ export default function AIChatInput() {
 
         {/* Drag-over hint (General only) */}
         {isDragOver && mode === "General" && (
-          <div className="mb-4 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-600 flex items-center gap-2">
+          <div className="mb-4 px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-sm text-gray-600 flex items-center gap-2">
             <Paperclip size={16} className="text-gray-700" />
             Drop files to attach ({ACCEPTED_EXT_HINTS})
           </div>
@@ -574,7 +574,7 @@ export default function AIChatInput() {
             {/* Attach — General mode only (Compare uses slots) */}
             {mode === "General" && (
               <button
-                className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
                 onClick={openFilePicker}
                 type="button"
               >
@@ -584,7 +584,7 @@ export default function AIChatInput() {
             )}
 
             {/* Jurisdiction */}
-            <div className="relative flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+            <div className="relative flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
               <Globe size={15} className="text-gray-500 shrink-0" />
               <select
                 value={jurisdiction}
@@ -604,13 +604,13 @@ export default function AIChatInput() {
             </div>
 
             {/* Mode switcher */}
-            <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
+            <div className="flex items-center bg-gray-100 rounded-md p-1 gap-0.5">
               {MODES.map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setMode(m)}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3 py-1 rounded-sm text-sm font-medium transition-colors ${
                     mode === m
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
@@ -645,7 +645,7 @@ export default function AIChatInput() {
 
             {/* Send */}
             <button
-              className="bg-[#14151a] p-2.5 rounded-xl text-white hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-[#14151a] p-2.5 rounded-md text-white hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleSend}
               disabled={!canSend}
               title={sendTitle}

@@ -99,7 +99,7 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
               <span className="font-medium text-gray-800 text-xs">{v}</span>
             </div>
           ))}
-          <div className="mt-1 p-2.5 bg-green-50 rounded-lg text-xs text-green-700 border border-green-100">
+          <div className="mt-1 p-2.5 bg-green-50 rounded-md text-xs text-green-700 border border-green-100">
             Jurisdiction locked. Proceeding with {jurisdictionLabel}-specific
             legal framework.
           </div>
@@ -204,7 +204,7 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
                 <div className="text-[11px] text-gray-400">{reason}</div>
               </div>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${needed ? "bg-indigo-50 text-indigo-700" : "bg-gray-100 text-gray-400"}`}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded ${needed ? "bg-indigo-50 text-indigo-700" : "bg-gray-100 text-gray-400"}`}
               >
                 {needed ? "YES" : "NO"}
               </span>
@@ -230,7 +230,7 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
           ].map((q, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg"
+              className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md"
             >
               <span className="text-gray-400 text-[10px] shrink-0 w-4">
                 {i + 1}.
@@ -333,9 +333,9 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
           ].map((s) => (
             <div
               key={s.title}
-              className="flex items-center gap-2 px-2.5 py-2 bg-green-50 rounded-lg border border-green-100"
+              className="flex items-center gap-2 px-2.5 py-2 bg-green-50 rounded-md border border-green-100"
             >
-              <span className="w-5 h-5 rounded-full bg-green-200 text-green-700 text-[10px] font-bold flex items-center justify-center shrink-0">
+              <span className="w-5 h-5 rounded bg-green-200 text-green-700 text-[10px] font-bold flex items-center justify-center shrink-0">
                 P{s.rank}
               </span>
               <span className="flex-1 text-xs text-gray-800 truncate">
@@ -354,7 +354,7 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
             "Rent Increase Analysis – lawfirm.dk",
             "Bar Association General FAQ",
           ].map((t) => (
-            <div key={t} className="px-2.5 py-1.5 bg-gray-50 rounded-lg">
+            <div key={t} className="px-2.5 py-1.5 bg-gray-50 rounded-md">
               <span className="text-xs text-gray-400 line-through">{t}</span>
             </div>
           ))}
@@ -383,7 +383,7 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
           ].map((c) => (
             <div
               key={c.source}
-              className="p-3 bg-gray-50 rounded-lg border border-gray-100"
+              className="p-3 bg-gray-50 rounded-md border border-gray-100"
             >
               <div className="text-[10px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
                 {c.source}
@@ -433,7 +433,7 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
           ].map((r, i) => (
             <div
               key={i}
-              className="p-3 rounded-lg border border-gray-200 bg-white space-y-1.5"
+              className="p-3 rounded-md border border-gray-200 bg-white space-y-1.5"
             >
               <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wide">
                 Rule {i + 1}
@@ -483,7 +483,7 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
         "Outcome: likely void · Key variable is the lease adjustment clause",
       renderDetails: () => (
         <div className="space-y-3">
-          <div className="overflow-x-auto rounded-lg border border-gray-100">
+          <div className="overflow-x-auto rounded-md border border-gray-100">
             <table className="w-full text-xs">
               <thead className="bg-gray-50">
                 <tr>
@@ -531,7 +531,7 @@ function buildStepConfigs(jurisdictionLabel: string): StepConfig[] {
               </tbody>
             </table>
           </div>
-          <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-100 text-xs text-amber-800">
+          <div className="p-2.5 bg-amber-50 rounded-md border border-amber-100 text-xs text-amber-800">
             <strong>Conclusion:</strong> The rent increase is likely invalid.
             The presence or absence of a contractual adjustment clause is the
             decisive factor.
@@ -589,7 +589,7 @@ function StepRow({
     <div>
       <button
         type="button"
-        className={`group w-full flex items-center gap-2.5 py-1.5 px-2 rounded-lg text-left transition-colors ${
+        className={`group w-full flex items-center gap-2.5 py-1.5 px-2 rounded-md text-left transition-colors ${
           isDone ? "hover:bg-gray-100 cursor-pointer" : "cursor-default"
         }`}
         onClick={isDone ? onToggle : undefined}
@@ -671,7 +671,7 @@ function StepRow({
 
 function FinalAnswer({ jLabel }: { jLabel: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2 bg-indigo-50/30">
         <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
           <Sparkles size={12} className="text-white" />
@@ -699,7 +699,7 @@ function FinalAnswer({ jLabel }: { jLabel: string }) {
               "Whether the increase follows a CPI formula or agreed escalation clause",
             ].map((item, i) => (
               <li key={i} className="flex items-start gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                <span className="w-5 h-5 rounded bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                   {i + 1}
                 </span>
                 <span>{item}</span>
@@ -708,7 +708,7 @@ function FinalAnswer({ jLabel }: { jLabel: string }) {
           </ol>
         </div>
 
-        <div className="p-3 bg-red-50 rounded-xl border border-red-100">
+        <div className="p-3 bg-red-50 rounded-md border border-red-100">
           <div className="font-semibold text-red-800 text-xs mb-1">
             If there is no adjustment clause:
           </div>
@@ -835,7 +835,7 @@ export default function ChatPage() {
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="space-y-4">
             {/* ── User question card ── */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0 text-white text-xs font-bold mt-0.5">
                   U
@@ -849,15 +849,15 @@ export default function ChatPage() {
                     )}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-3">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-xs text-gray-600 font-medium">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 font-medium">
                       <Globe size={10} />
                       {jLabel}
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-xs text-gray-600 font-medium">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 font-medium">
                       {mode} mode
                     </span>
                     {attachments.length > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-xs text-gray-600 font-medium">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 font-medium">
                         <FileText size={10} />
                         {attachments.length} attachment
                         {attachments.length !== 1 ? "s" : ""}
@@ -869,7 +869,7 @@ export default function ChatPage() {
             </div>
 
             {/* ── Agent steps card ── */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <div className="flex items-center gap-2">
@@ -921,7 +921,7 @@ export default function ChatPage() {
 
             {/* ── Follow-up questions ── */}
             {showFollowUp && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5">
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <HelpCircle size={14} className="text-amber-600 shrink-0" />
                   <span className="text-sm font-semibold text-amber-800">
@@ -938,7 +938,7 @@ export default function ChatPage() {
                       key={i}
                       className="flex items-start gap-2.5 text-sm text-amber-800"
                     >
-                      <span className="w-5 h-5 rounded-full bg-amber-200 text-amber-700 text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="w-5 h-5 rounded bg-amber-200 text-amber-700 text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">
                         {i + 1}
                       </span>
                       {q}
