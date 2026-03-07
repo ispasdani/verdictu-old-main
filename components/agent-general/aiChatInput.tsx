@@ -345,7 +345,7 @@ export default function AIChatInput() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full mx-auto">
+    <div className="max-w-4xl w-full mx-auto">
       {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
@@ -508,7 +508,7 @@ export default function AIChatInput() {
 
       {/* Main chat bubble */}
       <div
-        className={`bg-white border border-gray-200 rounded-md shadow-sm p-4 transition-shadow focus-within:shadow-md ${
+        className={`bg-white border border-gray-200 rounded-md w- p-4 transition-shadow focus-within:shadow-md ${
           isDragOver && mode === "General"
             ? "ring-2 ring-indigo-600 ring-offset-2"
             : ""
