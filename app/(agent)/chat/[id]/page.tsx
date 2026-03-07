@@ -832,7 +832,7 @@ export default function ChatPage() {
       </div>
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
           <div className="space-y-4">
             {/* ── User question card ── */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
