@@ -12,7 +12,9 @@ export default function AgentLayout({
       <TooltipProvider>
         <SidebarProvider>
           <AgentSidebar />
-          {children}
+          <div className="w-full h-screen bg-[#fafafa] flex items-center justify-center">
+            {children}
+          </div>
         </SidebarProvider>
       </TooltipProvider>
     </div>

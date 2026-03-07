@@ -826,7 +826,7 @@ export default function ChatPage() {
   const showFollowUp = statuses[10] === "completed";
 
   return (
-    <div className="flex flex-col h-screen relative w-full">
+    <div className="flex flex-col h-[98vh] w-[98.5%] relative bg-white rounded-lg">
       <div className="absolute top-4 left-4">
         <SidebarTrigger />
       </div>
@@ -952,11 +952,8 @@ export default function ChatPage() {
       </div>
 
       {/* ── Sticky input bar at the bottom ── */}
-      <div className="backdrop-blur-sm px-4 py-3">
-        <div className="max-w-6xl mx-auto">
-          <AIChatInput />
-        </div>
-      </div>
+
+      <AIChatInput />
     </div>
   );
 }

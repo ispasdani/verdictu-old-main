@@ -81,7 +81,7 @@ export function AgentSidebar() {
   const [activeWorkspace, setActiveWorkspace] = useState(WORKSPACES[0]);
 
   return (
-    <Sidebar>
+    <Sidebar className="bg-[#fafafa]">
       {/* ── Header: workspace selector ── */}
       <SidebarHeader>
         <SidebarMenu>
@@ -166,8 +166,6 @@ export function AgentSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator />
-
         {/* ── History ── */}
         <SidebarGroup>
           <SidebarGroupLabel>History</SidebarGroupLabel>
@@ -200,7 +198,6 @@ export function AgentSidebar() {
 
       {/* ── Footer: help + user ── */}
       <SidebarFooter>
-        <SidebarSeparator className="mb-1" />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Help & Support">
