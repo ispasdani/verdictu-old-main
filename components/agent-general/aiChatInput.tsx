@@ -508,7 +508,7 @@ export default function AIChatInput() {
 
       {/* Main chat bubble */}
       <div
-        className={`bg-white border border-gray-200 rounded-md w- p-4 transition-shadow focus-within:shadow-md ${
+        className={`bg-[#fafafa] border border-gray-200 rounded-md w- p-4 transition-shadow focus-within:shadow-md ${
           isDragOver && mode === "General"
             ? "ring-2 ring-indigo-600 ring-offset-2"
             : ""
@@ -586,7 +586,7 @@ export default function AIChatInput() {
             {/* Attach — General mode only (Compare uses slots) */}
             {mode === "General" && (
               <button
-                className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-100 bg-white transition-colors cursor-pointer"
                 onClick={openFilePicker}
                 type="button"
               >
@@ -598,7 +598,7 @@ export default function AIChatInput() {
             )}
 
             {/* Jurisdiction */}
-            <div className="relative flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
+            <div className="relative flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 bg-white transition-colors">
               <Globe size={15} className="text-gray-500 shrink-0" />
               <select
                 value={jurisdiction}
