@@ -6,6 +6,7 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 import ArticleContextProvider from "./providers/article-context-provider";
 import { ConvexClientProvider } from "./providers/ConvexClientProvider";
+import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
   title: {
@@ -72,21 +73,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`scroll-smooth ${inter.variable}`}>
-      <head>
-        <link
-          rel="icon"
-          href="/logos/FyrreMagazineFavicon.svg"
-          type="image/x-icon"
-        />
-      </head>
-      <body>
-        <ConvexClientProvider>
-          <ArticleContextProvider>
-            <Container>{children}</Container>
-          </ArticleContextProvider>
-        </ConvexClientProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className={`scroll-smooth ${inter.variable}`}>
+        <head>
+          <link
+            rel="icon"
+            href="/logos/FyrreMagazineFavicon.svg"
+            type="image/x-icon"
+          />
+        </head>
+        <body>
+          <ConvexClientProvider>
+            <ArticleContextProvider>
+              <Container>{children}</Container>
+            </ArticleContextProvider>
+          </ConvexClientProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
