@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install cheerio)"
+      "Bash(npm install cheerio)",
+      "Bash(grep -r chatHistories /c/Users/Dan/Documents/verdictu --include=*.ts --include=*.tsx --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.claude)",
+      "Bash(grep -r \"export\\\\|import\" /c/Users/Dan/Documents/verdictu --include=*.ts --include=*.tsx --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.claude)",
+      "Bash(find /c/Users/Dan/Documents/verdictu/components -type f -name *.tsx)",
+      "Bash(find /c/Users/Dan/Documents/verdictu/components -name *.tsx -type f)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -rn \"JSON.stringify\\\\|JSON.parse\" /c/Users/Dan/Documents/verdictu/app --include=*.ts --include=*.tsx)"
     ]
   }
 }
