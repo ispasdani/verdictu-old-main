@@ -100,29 +100,27 @@ function CompareDocSlot({
 
   return (
     <div
-      className={`flex-1 min-h-32.5 border-2 border-dashed rounded-sm flex flex-col items-center justify-center gap-1.5 transition-all ${
+      className={`flex-1 min-h-32 border-2 border-dashed rounded-md flex flex-col items-center justify-center gap-1.5 transition-all ${
         hasFile
-          ? "border-indigo-200 bg-indigo-50/60 cursor-default"
-          : "border-gray-200 hover:border-indigo-300 hover:bg-gray-50 cursor-pointer"
+          ? "border-foreground/20 bg-foreground/5 cursor-default"
+          : "border-border hover:border-foreground/20 hover:bg-secondary cursor-pointer"
       }`}
       onClick={() => !hasFile && onPick()}
     >
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-0.5">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 mb-0.5">
         Document {label}
       </span>
 
       {hasFile ? (
         <>
-          <FileText size={22} className="text-indigo-500" />
-          <span className="text-sm font-medium text-gray-800 text-center px-3 max-w-full truncate">
+          <FileText size={20} className="text-foreground/40" />
+          <span className="text-sm font-medium text-foreground/70 text-center px-3 max-w-full truncate">
             {slot.name}
           </span>
-          <span className="text-xs text-gray-400">
-            {formatBytes(slot.size)}
-          </span>
+          <span className="text-xs text-muted-foreground">{formatBytes(slot.size)}</span>
           <button
             type="button"
-            className="mt-1 flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors"
+            className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onClear();
@@ -134,9 +132,9 @@ function CompareDocSlot({
         </>
       ) : (
         <>
-          <Paperclip size={20} className="text-gray-300" />
-          <span className="text-sm text-gray-400">Click to upload</span>
-          <span className="text-xs text-gray-300">
+          <Paperclip size={18} className="text-muted-foreground/30" />
+          <span className="text-sm text-muted-foreground/60">Click to upload</span>
+          <span className="text-xs text-muted-foreground/40">
             {ACCEPTED_EXT_HINTS} · max {MAX_FILE_SIZE_MB}MB
           </span>
         </>
@@ -179,9 +177,7 @@ export default function AIChatInput() {
   const addAttachments = useChatComposerStore((s) => s.addAttachments);
   const updateAttachment = useChatComposerStore((s) => s.updateAttachment);
   const removeAttachment = useChatComposerStore((s) => s.removeAttachment);
-  const renameAttachmentInStore = useChatComposerStore(
-    (s) => s.renameAttachment,
-  );
+  const renameAttachmentInStore = useChatComposerStore((s) => s.renameAttachment);
 
   // Derived
   const hasAnyUploading = useMemo(
@@ -207,10 +203,7 @@ export default function AIChatInput() {
       if (ext === "doc") {
         const fd = new FormData();
         fd.append("file", file);
-        const res = await fetch("/api/extract-doc", {
-          method: "POST",
-          body: fd,
-        });
+        const res = await fetch("/api/extract-doc", { method: "POST", body: fd });
         if (!res.ok) throw new Error(`Server error ${res.status}`);
         const data = await res.json();
         text = data.text ?? "";
@@ -218,11 +211,7 @@ export default function AIChatInput() {
         const { extractText } = await import("@/lib/extractText");
         text = await extractText(file);
       }
-      updateAttachment(id, {
-        status: "done",
-        progress: 100,
-        extractedText: text,
-      });
+      updateAttachment(id, { status: "done", progress: 100, extractedText: text });
     } catch (err) {
       updateAttachment(id, {
         status: "error",
@@ -276,11 +265,7 @@ export default function AIChatInput() {
   const retryUpload = (id: string) => {
     const att = attachments.find((a) => a.id === id);
     if (!att) return;
-    updateAttachment(id, {
-      status: "uploading",
-      progress: 0,
-      error: undefined,
-    });
+    updateAttachment(id, { status: "uploading", progress: 0, error: undefined });
     extractTextFromFile(id, att.file);
   };
 
@@ -308,10 +293,7 @@ export default function AIChatInput() {
 
   // ── Compare slot handling ───────────────────────────────────────────────────
 
-  const onSlotChange = (
-    slot: "A" | "B",
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const onSlotChange = (slot: "A" | "B", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const data: CompareSlot = { file, name: file.name, size: file.size };
@@ -345,46 +327,27 @@ export default function AIChatInput() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-4xl w-full mx-auto">
+    <div className="max-w-3xl w-full mx-auto px-4">
       {/* Hidden file inputs */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept={ACCEPT_ATTR}
-        className="hidden"
-        onChange={onFileInputChange}
-      />
-      <input
-        ref={fileInputARef}
-        type="file"
-        accept={ACCEPT_ATTR}
-        className="hidden"
-        onChange={(e) => onSlotChange("A", e)}
-      />
-      <input
-        ref={fileInputBRef}
-        type="file"
-        accept={ACCEPT_ATTR}
-        className="hidden"
-        onChange={(e) => onSlotChange("B", e)}
-      />
+      <input ref={fileInputRef} type="file" multiple accept={ACCEPT_ATTR} className="hidden" onChange={onFileInputChange} />
+      <input ref={fileInputARef} type="file" accept={ACCEPT_ATTR} className="hidden" onChange={(e) => onSlotChange("A", e)} />
+      <input ref={fileInputBRef} type="file" accept={ACCEPT_ATTR} className="hidden" onChange={(e) => onSlotChange("B", e)} />
 
       {/* Above-bubble attachment list — General mode only */}
       {mode === "General" && (
-        <div className="flex flex-col gap-2 mb-2 px-2">
+        <div className="flex flex-col gap-2 mb-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-muted-foreground/50">
               Attach {ACCEPTED_EXT_HINTS} (max {MAX_FILE_SIZE_MB}MB each)
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-muted-foreground/40">
               Files stay in your workspace / not shared externally
             </div>
           </div>
 
           {globalError && (
-            <div className="flex items-center gap-2 text-xs text-red-600">
-              <AlertTriangle size={14} />
+            <div className="flex items-center gap-2 text-xs text-red-400">
+              <AlertTriangle size={13} />
               <span>{globalError}</span>
             </div>
           )}
@@ -393,49 +356,44 @@ export default function AIChatInput() {
             {attachments.map((att) => (
               <div
                 key={att.id}
-                className="bg-gray-100 rounded-lg p-2 text-sm border flex items-center gap-2"
+                className="bg-secondary border border-border rounded-lg p-2 text-sm flex items-center gap-2"
                 title={att.file.name}
               >
-                <FileText size={14} />
+                <FileText size={13} className="text-muted-foreground/60 shrink-0" />
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
-                    <span className="max-w-[220px] truncate">{att.name}</span>
+                    <span className="max-w-[220px] truncate text-foreground/70">{att.name}</span>
                     {att.status === "uploading" && (
-                      <span className="text-xs text-gray-500 flex items-center gap-1">
-                        <Loader2 size={12} className="animate-spin" />
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Loader2 size={11} className="animate-spin" />
                         {att.progress}%
                       </span>
                     )}
                     {att.status === "done" && (
-                      <span className="text-xs text-gray-500 flex items-center gap-1">
-                        <Check size={12} />
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Check size={11} />
                         Ready
                       </span>
                     )}
                     {att.status === "error" && (
-                      <span className="text-xs text-red-600 flex items-center gap-1">
-                        <AlertTriangle size={12} />
+                      <span className="text-xs text-red-400 flex items-center gap-1">
+                        <AlertTriangle size={11} />
                         Error
                       </span>
                     )}
                   </div>
 
                   {att.status === "uploading" && (
-                    <div className="h-1 w-[240px] max-w-[60vw] bg-white/60 rounded mt-1 overflow-hidden border border-gray-200">
-                      <div
-                        className="h-full bg-indigo-600"
-                        style={{ width: `${att.progress}%` }}
-                      />
+                    <div className="h-0.5 w-60 max-w-[60vw] bg-border rounded mt-1.5 overflow-hidden">
+                      <div className="h-full bg-foreground/60 transition-all" style={{ width: `${att.progress}%` }} />
                     </div>
                   )}
 
                   {att.status === "error" && (
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-red-600">
-                        {att.error ?? "Upload failed."}
-                      </span>
+                      <span className="text-xs text-red-400">{att.error ?? "Upload failed."}</span>
                       <button
-                        className="text-xs text-gray-700 underline underline-offset-2"
+                        className="text-xs text-foreground/50 underline underline-offset-2 hover:text-foreground/70"
                         onClick={() => retryUpload(att.id)}
                         type="button"
                       >
@@ -446,17 +404,15 @@ export default function AIChatInput() {
 
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <button
-                      className="text-xs text-gray-700 underline underline-offset-2 disabled:text-gray-400"
-                      onClick={() =>
-                        runAttachmentAction(att.id, "use_as_source")
-                      }
+                      className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
+                      onClick={() => runAttachmentAction(att.id, "use_as_source")}
                       disabled={att.status !== "done"}
                       type="button"
                     >
                       Use as source
                     </button>
                     <button
-                      className="text-xs text-gray-700 underline underline-offset-2 disabled:text-gray-400"
+                      className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
                       onClick={() => runAttachmentAction(att.id, "summarize")}
                       disabled={att.status !== "done"}
                       type="button"
@@ -464,33 +420,31 @@ export default function AIChatInput() {
                       Summarize
                     </button>
                     <button
-                      className="text-xs text-gray-700 underline underline-offset-2 disabled:text-gray-400"
-                      onClick={() =>
-                        runAttachmentAction(att.id, "extract_citations")
-                      }
+                      className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
+                      onClick={() => runAttachmentAction(att.id, "extract_citations")}
                       disabled={att.status !== "done"}
                       type="button"
                     >
                       Extract citations
                     </button>
                     <button
-                      className="text-xs text-gray-700 underline underline-offset-2"
+                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground/70"
                       onClick={() => renameAttachment(att.id)}
                       type="button"
                     >
                       Rename
                     </button>
                     <button
-                      className="ml-auto p-1 rounded hover:bg-gray-200 transition-colors"
+                      className="ml-auto p-1 rounded hover:bg-accent transition-colors"
                       onClick={() => removeAttachment(att.id)}
                       type="button"
                     >
-                      <X size={14} className="text-gray-600" />
+                      <X size={13} className="text-muted-foreground" />
                     </button>
                   </div>
 
                   {att.lastAction && (
-                    <div className="text-[11px] text-gray-500 mt-1">
+                    <div className="text-[11px] text-muted-foreground/50 mt-1">
                       Last action:{" "}
                       {att.lastAction === "use_as_source"
                         ? "Use as source"
@@ -508,10 +462,8 @@ export default function AIChatInput() {
 
       {/* Main chat bubble */}
       <div
-        className={`bg-[#fafafa] border border-gray-200 rounded-md w- p-4 transition-shadow focus-within:shadow-md ${
-          isDragOver && mode === "General"
-            ? "ring-2 ring-indigo-600 ring-offset-2"
-            : ""
+        className={`bg-secondary border border-border rounded-lg p-4 transition-colors ${
+          isDragOver && mode === "General" ? "ring-1 ring-foreground/30 border-foreground/30" : ""
         }`}
         onDragOver={mode === "General" ? onDragOver : undefined}
         onDragLeave={mode === "General" ? onDragLeave : undefined}
@@ -520,9 +472,9 @@ export default function AIChatInput() {
         {/* ── General / Draft body ── */}
         {(mode === "General" || mode === "Draft") && (
           <div className="flex items-start gap-3 mb-4">
-            <Sparkles className="text-gray-400 mt-1" size={18} />
+            <Sparkles className="text-muted-foreground/40 mt-1 shrink-0" size={16} />
             <textarea
-              className="w-full bg-transparent border-none outline-none resize-none text-[16px] placeholder-gray-500 min-h-20"
+              className="w-full bg-transparent border-none outline-none resize-none text-[15px] text-foreground placeholder:text-muted-foreground/40 min-h-20"
               placeholder={
                 mode === "Draft"
                   ? "Describe the document you'd like to draft…"
@@ -538,7 +490,6 @@ export default function AIChatInput() {
         {/* ── Compare body ── */}
         {mode === "Compare" && (
           <>
-            {/* Two document slots */}
             <div className="flex gap-3 mb-3">
               <CompareDocSlot
                 label="A"
@@ -547,7 +498,7 @@ export default function AIChatInput() {
                 onClear={() => setSlotA(EMPTY_SLOT)}
               />
               <div className="flex items-center justify-center shrink-0">
-                <span className="text-[11px] font-bold text-gray-300 bg-gray-100 rounded-md w-8 h-8 flex items-center justify-center select-none">
+                <span className="text-[11px] font-bold text-muted-foreground/40 bg-accent border border-border rounded-md w-8 h-8 flex items-center justify-center select-none">
                   vs
                 </span>
               </div>
@@ -559,10 +510,9 @@ export default function AIChatInput() {
               />
             </div>
 
-            {/* Optional question / focus area */}
-            <div className="border-t border-gray-100 pt-3 mb-3">
+            <div className="border-t border-border pt-3 mb-3">
               <textarea
-                className="w-full bg-transparent border-none outline-none resize-none text-[15px] placeholder-gray-400 min-h-11"
+                className="w-full bg-transparent border-none outline-none resize-none text-[15px] text-foreground placeholder:text-muted-foreground/40 min-h-11"
                 placeholder="What should we focus on? e.g. termination clauses, liability caps, IP ownership… (optional)"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -574,60 +524,55 @@ export default function AIChatInput() {
 
         {/* Drag-over hint (General only) */}
         {isDragOver && mode === "General" && (
-          <div className="mb-4 px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-sm text-gray-600 flex items-center gap-2">
-            <Paperclip size={16} className="text-gray-700" />
+          <div className="mb-4 px-3 py-2 rounded-md border border-border bg-accent text-sm text-foreground/60 flex items-center gap-2">
+            <Paperclip size={14} className="text-foreground/50" />
             Drop files to attach ({ACCEPTED_EXT_HINTS})
           </div>
         )}
 
         {/* ── Toolbar ── */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Attach — General mode only (Compare uses slots) */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Attach — General mode only */}
             {mode === "General" && (
               <button
-                className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-100 bg-white transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent bg-transparent transition-colors cursor-pointer"
                 onClick={openFilePicker}
                 type="button"
               >
-                <Paperclip size={16} className="text-gray-700" />
-                <span className="text-sm font-medium text-gray-700">
-                  Attach
-                </span>
+                <Paperclip size={14} className="text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">Attach</span>
               </button>
             )}
 
             {/* Jurisdiction */}
-            <div className="relative flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50 bg-white transition-colors">
-              <Globe size={15} className="text-gray-500 shrink-0" />
+            <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent bg-transparent transition-colors">
+              <Globe size={13} className="text-muted-foreground shrink-0" />
               <select
                 value={jurisdiction}
                 onChange={(e) => setJurisdiction(e.target.value)}
-                className="bg-transparent border-none outline-none text-sm font-medium text-gray-700 cursor-pointer appearance-none pr-4"
+                className="bg-transparent border-none outline-none text-xs font-medium text-muted-foreground cursor-pointer appearance-none pr-3"
               >
                 {JURISDICTIONS.map((j) => (
-                  <option key={j.value} value={j.value}>
+                  <option key={j.value} value={j.value} className="bg-card text-foreground">
                     {j.label}
                   </option>
                 ))}
               </select>
-              <ChevronDown
-                size={13}
-                className="text-gray-400 pointer-events-none absolute right-2.5"
-              />
+              <ChevronDown size={11} className="text-muted-foreground/50 pointer-events-none absolute right-2" />
             </div>
 
             {/* Mode switcher */}
-            <div className="flex items-center bg-gray-100 rounded-md p-1 gap-0.5">
+            <div className="flex items-center bg-accent border border-border rounded-md p-0.5 gap-0.5">
               {MODES.map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setMode(m)}
-                  className={`px-3 py-1 rounded-sm text-sm font-medium transition-colors ${
+                  className={`px-2.5 py-1 rounded-sm text-xs font-medium transition-colors ${
                     mode === m
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-card text-foreground border border-border shadow-sm"
+                      : "text-muted-foreground hover:text-foreground/70"
                   }`}
                 >
                   {m}
@@ -644,28 +589,28 @@ export default function AIChatInput() {
               onClick={() => setCitationEnabled(!citationEnabled)}
             >
               <div
-                className={`w-9 h-5 rounded-full flex items-center px-0.5 transition-colors ${
-                  citationEnabled ? "bg-indigo-600" : "bg-gray-300"
+                className={`w-8 h-4 rounded-full flex items-center px-0.5 transition-colors ${
+                  citationEnabled ? "bg-foreground/80" : "bg-border"
                 }`}
               >
                 <div
-                  className={`bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${
+                  className={`bg-background w-3 h-3 rounded-full shadow-sm transition-transform ${
                     citationEnabled ? "translate-x-4" : "translate-x-0"
                   }`}
                 />
               </div>
-              <span className="text-sm text-gray-600">Citations</span>
+              <span className="text-xs text-muted-foreground">Citations</span>
             </button>
 
             {/* Send */}
             <button
-              className="bg-[#14151a] p-2.5 rounded-md text-white hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-foreground p-2 rounded-md text-background hover:bg-foreground/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               onClick={handleSend}
               disabled={!canSend}
               title={sendTitle}
               type="button"
             >
-              <ArrowUp size={20} strokeWidth={2.5} />
+              <ArrowUp size={16} strokeWidth={2.5} />
             </button>
           </div>
         </div>

@@ -8,11 +8,11 @@ export default function AgentLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="font-inter">
+    <div className="font-inter dark">
       <TooltipProvider>
         <SidebarProvider>
           <AgentSidebar />
-          <div className="w-full h-screen bg-[#fafafa] flex items-center justify-center">
+          <div className="w-full h-screen bg-background flex items-center justify-center">
             {children}
           </div>
         </SidebarProvider>

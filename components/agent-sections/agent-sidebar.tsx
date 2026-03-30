@@ -10,10 +10,10 @@ import {
   FileSearch,
   AlignLeft,
   Gavel,
-  ChevronDown,
   Plus,
   HelpCircle,
   Settings,
+  SquarePen,
 } from "lucide-react";
 
 import {
@@ -28,44 +28,21 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 // ─── Mock data ───────────────────────────────────────────────────────────────
 
-const WORKSPACES = [
-  { id: "personal", name: "Personal" },
-  { id: "acme", name: "Acme Law" },
-];
-
 const FEATURES = [
   { id: "chat", label: "AI Chat", icon: MessageSquare, href: "/chat/new" },
-  {
-    id: "contracts",
-    label: "Contract Review",
-    icon: FileText,
-    href: "/contracts",
-  },
+  { id: "contracts", label: "Contract Review", icon: FileText, href: "/contracts" },
   { id: "research", label: "Case Research", icon: Search, href: "/research" },
-  {
-    id: "documents",
-    label: "Document Analysis",
-    icon: FileSearch,
-    href: "/documents",
-  },
+  { id: "documents", label: "Document Analysis", icon: FileSearch, href: "/documents" },
   { id: "summary", label: "Legal Summary", icon: AlignLeft, href: "/summary" },
   { id: "rulings", label: "Case Rulings", icon: Gavel, href: "/rulings" },
 ];
 
 type Chat = { id: string; title: string };
 
-// TODO: replace with useQuery(api.chats.list) from Convex
 const MOCK_CHATS: Chat[] = [
   { id: "1", title: "Can a landlord increase rent during a fixed-term lease?" },
   { id: "2", title: "Employment termination rights in Germany" },
@@ -77,69 +54,43 @@ const MOCK_CHATS: Chat[] = [
 
 export function AgentSidebar() {
   const pathname = usePathname();
-  const [activeWorkspace, setActiveWorkspace] = useState(WORKSPACES[0]);
 
   return (
-    <Sidebar className="bg-[#fafafa]">
-      {/* ── Header: workspace selector ── */}
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                    <img
-                      src="/icons/verdictu-black.svg"
-                      alt=""
-                      className="h-4 w-4 object-contain invert"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display =
-                          "none";
-                      }}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-0.5 text-left leading-none">
-                    <span className="text-sm font-semibold">
-                      {activeWorkspace.name}
-                    </span>
-                    <span className="text-xs text-sidebar-foreground/60">
-                      Workspace
-                    </span>
-                  </div>
-                  <ChevronDown className="ml-auto shrink-0 text-sidebar-foreground/50" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="bottom" className="w-52">
-                {WORKSPACES.map((ws) => (
-                  <DropdownMenuItem
-                    key={ws.id}
-                    onSelect={() => setActiveWorkspace(ws)}
-                    className={cn(
-                      ws.id === activeWorkspace.id && "font-medium",
-                    )}
-                  >
-                    {ws.name}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Plus className="mr-2" />
-                  Create workspace
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+    <Sidebar>
+      {/* ── Header: logo + new chat ── */}
+      <SidebarHeader className="px-3 py-4 border-b border-sidebar-border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+              <img
+                src="/icons/verdictu-black.svg"
+                alt=""
+                className="h-3.5 w-3.5 object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
+            <span className="text-sm font-semibold text-sidebar-foreground tracking-tight">
+              Verdictu
+            </span>
+          </div>
+          <Link
+            href="/chat/new"
+            className="flex items-center justify-center w-6 h-6 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground/50 hover:text-sidebar-foreground"
+            title="New chat"
+          >
+            <SquarePen size={14} />
+          </Link>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
         {/* ── Features ── */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Features</SidebarGroupLabel>
+        <SidebarGroup className="pt-4">
+          <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30 px-3 mb-1">
+            Tools
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {FEATURES.map((feature) => {
@@ -151,11 +102,14 @@ export function AgentSidebar() {
                       asChild
                       isActive={isActive}
                       tooltip={feature.label}
-                      className="font-[400]"
+                      className={cn(
+                        "font-normal text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors rounded-md",
+                        isActive && "text-sidebar-foreground bg-sidebar-accent",
+                      )}
                     >
                       <Link href={feature.href}>
-                        <Icon />
-                        <span>{feature.label}</span>
+                        <Icon size={15} />
+                        <span className="text-sm">{feature.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -166,8 +120,10 @@ export function AgentSidebar() {
         </SidebarGroup>
 
         {/* ── History ── */}
-        <SidebarGroup>
-          <SidebarGroupLabel>History</SidebarGroupLabel>
+        <SidebarGroup className="pt-2">
+          <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30 px-3 mb-1">
+            Recent
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {MOCK_CHATS.map((chat) => {
@@ -178,13 +134,15 @@ export function AgentSidebar() {
                       asChild
                       isActive={isActive}
                       tooltip={chat.title}
-                      className="font-normal group/chat"
+                      className={cn(
+                        "font-normal group/chat rounded-md transition-colors",
+                        isActive
+                          ? "text-sidebar-foreground bg-sidebar-accent"
+                          : "text-sidebar-foreground/40 hover:text-sidebar-foreground/80 hover:bg-sidebar-accent",
+                      )}
                     >
                       <Link href={`/chat/${chat.id}`}>
-                        <MessageSquare className="text-sidebar-foreground/40 group-hover/chat:text-sidebar-foreground/70 transition-colors" />
-                        <span className="text-sidebar-foreground/40 group-hover/chat:text-sidebar-foreground/70 transition-colors truncate">
-                          {chat.title}
-                        </span>
+                        <span className="text-sm truncate">{chat.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -196,28 +154,36 @@ export function AgentSidebar() {
       </SidebarContent>
 
       {/* ── Footer: help + user ── */}
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border pt-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Help & Support">
-              <HelpCircle />
-              <span>Help &amp; Support</span>
+            <SidebarMenuButton
+              tooltip="Help & Support"
+              className="text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-md transition-colors"
+            >
+              <HelpCircle size={15} />
+              <span className="text-sm">Help &amp; Support</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
 
-          {/* Clerk user avatar — mocked */}
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" tooltip="Account settings">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-sm font-medium select-none">
+            <SidebarMenuButton
+              size="lg"
+              tooltip="Account settings"
+              className="hover:bg-sidebar-accent rounded-md transition-colors"
+            >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-foreground text-xs font-medium select-none border border-sidebar-border">
                 JD
               </div>
-              <div className="flex flex-col gap-0.5 text-left leading-none">
-                <span className="text-sm font-medium">John Doe</span>
-                <span className="text-xs text-sidebar-foreground/60">
+              <div className="flex flex-col gap-0.5 text-left leading-none min-w-0">
+                <span className="text-sm font-medium text-sidebar-foreground truncate">
+                  John Doe
+                </span>
+                <span className="text-xs text-sidebar-foreground/40 truncate">
                   john@acmelaw.com
                 </span>
               </div>
-              <Settings className="ml-auto shrink-0 text-sidebar-foreground/50" />
+              <Settings size={13} className="ml-auto shrink-0 text-sidebar-foreground/30" />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
