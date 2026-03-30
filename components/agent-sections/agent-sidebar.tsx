@@ -65,7 +65,7 @@ export function AgentSidebar() {
               <img
                 src="/icons/verdictu-black.svg"
                 alt=""
-                className="h-3.5 w-3.5 object-contain"
+                className="h-3.5 w-3.5 object-contain dark:invert"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}

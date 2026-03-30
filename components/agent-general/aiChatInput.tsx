@@ -590,11 +590,11 @@ export default function AIChatInput() {
             >
               <div
                 className={`w-8 h-4 rounded-full flex items-center px-0.5 transition-colors ${
-                  citationEnabled ? "bg-foreground/80" : "bg-border"
+                  citationEnabled ? "bg-foreground" : "bg-border"
                 }`}
               >
                 <div
-                  className={`bg-background w-3 h-3 rounded-full shadow-sm transition-transform ${
+                  className={`bg-white w-3 h-3 rounded-full shadow-sm transition-transform ${
                     citationEnabled ? "translate-x-4" : "translate-x-0"
                   }`}
                 />
@@ -604,7 +604,7 @@ export default function AIChatInput() {
 
             {/* Send */}
             <button
-              className="bg-foreground p-2 rounded-md text-background hover:bg-foreground/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="bg-foreground p-2 rounded-md text-card hover:bg-foreground/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               onClick={handleSend}
               disabled={!canSend}
               title={sendTitle}

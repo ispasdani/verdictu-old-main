@@ -8,7 +8,7 @@ export default function AgentLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="font-inter dark">
+    <div className="font-inter">
       <TooltipProvider>
         <SidebarProvider>
           <AgentSidebar />
