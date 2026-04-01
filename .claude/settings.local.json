@@ -8,7 +8,10 @@
       "Bash(find /c/Users/Dan/Documents/verdictu/components -name *.tsx -type f)",
       "Bash(xargs grep:*)",
       "Bash(grep -rn \"JSON.stringify\\\\|JSON.parse\" /c/Users/Dan/Documents/verdictu/app --include=*.ts --include=*.tsx)",
-      "Bash(wc -l /c/Users/Dan/Documents/verdictu/app/\\\\\\(agent\\\\\\)/chat/[id]/page.tsx)"
+      "Bash(wc -l /c/Users/Dan/Documents/verdictu/app/\\\\\\(agent\\\\\\)/chat/[id]/page.tsx)",
+      "Bash(ls c:/Users/Dan/Documents/verdictu/.env*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
