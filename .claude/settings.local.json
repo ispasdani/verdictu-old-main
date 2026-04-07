@@ -13,7 +13,9 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
-      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); deps=d.get\\('dependencies',{}\\); devdeps=d.get\\('devDependencies',{}\\); print\\('\\\\n'.join\\(sorted\\(deps.keys\\(\\)\\)\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(m['name']\\) for m in data.get\\('models',[]\\) if 'flash' in m['name'].lower\\(\\) or 'pro' in m['name'].lower\\(\\)]\")"
     ]
   }
 }

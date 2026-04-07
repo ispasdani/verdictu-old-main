@@ -19,10 +19,10 @@ export interface CompletionResult {
 
 // Default provider/model used across the app
 export const DEFAULT_PROVIDER: AIProvider = "gemini";
-export const DEFAULT_MODEL = "gemini-2.0-flash-lite";
+export const DEFAULT_MODEL = "gemini-2.5-flash";
 
 const MODEL_DEFAULTS: Record<AIProvider, string> = {
-  gemini: "gemini-2.0-flash-lite",
+  gemini: "gemini-2.5-flash",
   openai: "gpt-4o-mini",
   anthropic: "claude-sonnet-4-6",
 };

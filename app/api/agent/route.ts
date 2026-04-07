@@ -1,25 +1,39 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/agent/route.ts
+// Verdictu Legal AI Agent — SSE streaming endpoint.
+//
+// Turn 1: Law identification (fast, JSON)
+// Turn 2: Deep search via Tavily/DDG (concurrent per query, always on)
+// Turn 3: Streaming synthesis (tokens streamed to client)
+// Turn 4: Follow-up questions (fast, JSON)
+
+import { NextRequest } from "next/server";
 import {
   complete,
   DEFAULT_PROVIDER,
-  DEFAULT_MODEL,
   resolveModel,
   type AIProvider,
 } from "@/lib/ai/providers";
-import type { SearchResult } from "@/app/api/search/route";
+import { search } from "@/lib/search/tavily";
+import {
+  lawIdentificationPrompt,
+  synthesisPrompt,
+  followUpPrompt,
+} from "@/lib/ai/prompts";
+import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Attachment {
   filename: string;
   text: string;
 }
 
-interface AgentRequestBody {
+export interface AgentRequestBody {
   message: string;
   jurisdiction: string;
   mode?: "General" | "Compare" | "Draft";
@@ -29,116 +43,84 @@ interface AgentRequestBody {
   model?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Jurisdiction context
-// ---------------------------------------------------------------------------
-
-const JURISDICTION_CONTEXT: Record<string, string> = {
-  DK: "Danish law (Retsplejeloven, GDPR as implemented in DK). Cite Danish legislation and court practice (Højesteret, Landsretterne).",
-  DE: "German law (BGB, HGB, GG). Cite German statutes and BGH case law.",
-  EU: "EU law (Treaties, Regulations, Directives). Cite EUR-Lex sources.",
-  UK: "English and Welsh law post-Brexit. Cite UK statutes and case law (UKSC, EWCA).",
-  FR: "French law (Code civil, Code de commerce). Cite French legislation and Cour de cassation.",
-  SE: "Swedish law (Rättsfall från Högsta domstolen). Cite Swedish statutes.",
-  NL: "Dutch law (BW, WvSr). Cite Dutch legislation and Hoge Raad.",
-  US: "US federal and state law. Cite relevant federal statutes, CFR, and landmark case law.",
-};
-
-// ---------------------------------------------------------------------------
-// Prompt builders
-// ---------------------------------------------------------------------------
-
-function buildQuerySystemPrompt(jurisdiction: string): string {
-  const ctx =
-    JURISDICTION_CONTEXT[jurisdiction] ??
-    "general international law principles";
-  return `You are a legal research assistant specializing in ${ctx}.
-Your task: generate 3–5 focused web search queries to answer the user's legal question.
-Return ONLY a valid JSON array of strings, no other text. Example: ["query 1","query 2","query 3"]`;
+interface LawItem {
+  name: string;
+  citation: string;
+  relevance: "primary" | "secondary" | "supplementary";
+  confidence: number;
+  applies_because: string;
 }
 
-function buildLegalSystemPrompt(
-  jurisdiction: string,
-  mode: string,
-  citationEnabled?: boolean,
-): string {
-  const ctx =
-    JURISDICTION_CONTEXT[jurisdiction] ??
-    "general international law principles";
-
-  let prompt = `You are a legal research assistant specializing in ${ctx}.
-
-Always:
-- Cite specific articles, sections, and case references
-- Distinguish clearly between established law and legal opinion
-- Flag when an answer may require a licensed local attorney
-- Structure answers: Summary → Legal basis → Analysis → Practical implications
-- Add a disclaimer that this is not formal legal advice`;
-
-  if (citationEnabled) {
-    prompt +=
-      "\n\nReturn inline citations as [1], [2], etc. At the end of your response, list them as:\n[1] Title — URL";
-  }
-
-  if (mode === "Compare") {
-    prompt +=
-      "\n\nYou are comparing two documents. Identify conflicts, gaps, and risk areas. Structure: Document Overview → Conflicts → Gaps → Risk Assessment (HIGH/MEDIUM/LOW) → Recommendations.";
-  } else if (mode === "Draft") {
-    prompt +=
-      "\n\nYou are drafting a legal document. Use formal legal language appropriate for the jurisdiction.";
-  }
-
-  return prompt;
+interface LawIdentificationResult {
+  laws: LawItem[];
+  searchQueries: string[];
+  legalDomain: string;
+  jurisdictionConfirmed: string;
 }
 
-function buildUserMessage(
-  question: string,
-  sources: SearchResult[],
-  attachments?: Attachment[],
-): string {
-  let content = question;
+// ─── SSE helper ───────────────────────────────────────────────────────────────
 
-  if (attachments?.length) {
-    content += "\n\n--- ATTACHED DOCUMENTS ---";
-    for (const a of attachments) {
-      content += `\n\n[${a.filename}]\n${a.text.slice(0, 8000)}`;
+const enc = new TextEncoder();
+function sseChunk(data: object): Uint8Array {
+  return enc.encode(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+// ─── Streaming synthesis ──────────────────────────────────────────────────────
+
+async function* streamSynthesis(
+  provider: AIProvider,
+  model: string,
+  systemPrompt: string,
+  userMessage: string,
+): AsyncIterable<string> {
+  if (provider === "anthropic") {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const stream = client.messages.stream({
+      model,
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    });
+    for await (const event of stream) {
+      if (
+        event.type === "content_block_delta" &&
+        event.delta.type === "text_delta"
+      ) {
+        yield event.delta.text;
+      }
+    }
+  } else if (provider === "gemini") {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+    const genModel = genAI.getGenerativeModel({
+      model,
+      systemInstruction: systemPrompt,
+      generationConfig: { maxOutputTokens: 4000 },
+    });
+    const result = await genModel.generateContentStream(userMessage);
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) yield text;
+    }
+  } else {
+    // OpenAI streaming
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const stream = await client.chat.completions.create({
+      model,
+      max_tokens: 4000,
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+    });
+    for await (const chunk of stream) {
+      const text = chunk.choices[0]?.delta?.content;
+      if (text) yield text;
     }
   }
-
-  if (sources.length) {
-    content += "\n\n--- WEB SEARCH RESULTS ---";
-    sources.forEach((s, i) => {
-      content += `\n\n[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`;
-    });
-  }
-
-  return content;
 }
 
-// ---------------------------------------------------------------------------
-// Internal search helper
-// ---------------------------------------------------------------------------
-
-async function runSearch(query: string): Promise<SearchResult[]> {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  try {
-    const res = await fetch(`${baseUrl}/api/search`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, maxResults: 5 }),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.results ?? [];
-  } catch {
-    return [];
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Route handler
-// ---------------------------------------------------------------------------
+// ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const body: AgentRequestBody = await req.json();
@@ -147,61 +129,229 @@ export async function POST(req: NextRequest) {
     jurisdiction = "EU",
     mode = "General",
     attachments,
-    citationEnabled,
+    citationEnabled = true,
     provider = DEFAULT_PROVIDER,
     model: requestedModel,
   } = body;
 
   if (!message?.trim()) {
-    return NextResponse.json({ error: "message is required" }, { status: 400 });
+    return new Response(JSON.stringify({ error: "message is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const model = resolveModel(provider, requestedModel);
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-  // Step 1 — generate search queries
-  let queries: string[] = [];
-  try {
-    const queryResult = await complete(provider, model, {
-      systemPrompt: buildQuerySystemPrompt(jurisdiction),
-      userMessage: message,
-      maxTokens: 400,
-      jsonMode: true,
-    });
-    queries = JSON.parse(queryResult.text);
-    if (!Array.isArray(queries)) queries = [];
-  } catch {
-    // Continue without search if query generation fails
-    queries = [];
-  }
+  const readable = new ReadableStream({
+    async start(controller) {
+      const emit = (data: object) => controller.enqueue(sseChunk(data));
 
-  // Step 2 — run searches in parallel
-  const searchResults = queries.length
-    ? (await Promise.all(queries.map(runSearch))).flat()
-    : [];
+      try {
+        // ── Turn 1: Intake ─────────────────────────────────────────────────
+        emit({
+          step: "intake",
+          data: { jurisdiction, mode, preview: message.slice(0, 120) },
+        });
 
-  // Deduplicate by URL
-  const seen = new Set<string>();
-  const sources = searchResults.filter((r) => {
-    if (seen.has(r.url)) return false;
-    seen.add(r.url);
-    return true;
+        // ── Turn 1: Law Identification ─────────────────────────────────────
+        emit({
+          step: "identifying",
+          data: { message: "Identifying applicable laws and regulations…" },
+        });
+
+        let lawResult: LawIdentificationResult = {
+          laws: [],
+          searchQueries: [],
+          legalDomain: "general",
+          jurisdictionConfirmed: jurisdiction,
+        };
+
+        try {
+          const lawRes = await complete(provider, model, {
+            systemPrompt: lawIdentificationPrompt(jurisdiction),
+            userMessage: message,
+            maxTokens: 1200,
+            jsonMode: true,
+          });
+          const parsed = JSON.parse(lawRes.text);
+          lawResult = {
+            laws: Array.isArray(parsed.laws) ? parsed.laws : [],
+            searchQueries: Array.isArray(parsed.searchQueries)
+              ? parsed.searchQueries
+              : [],
+            legalDomain: parsed.legalDomain ?? "general",
+            jurisdictionConfirmed:
+              parsed.jurisdictionConfirmed ?? jurisdiction,
+          };
+        } catch {
+          // Non-fatal — continue with empty laws
+        }
+
+        emit({
+          step: "laws_found",
+          data: {
+            laws: lawResult.laws,
+            domain: lawResult.legalDomain,
+            jurisdiction: lawResult.jurisdictionConfirmed,
+            count: lawResult.laws.length,
+          },
+        });
+
+        // ── Turn 2: Deep Search (always on) ───────────────────────────────
+        // Build queries: AI-generated + one fallback
+        const queries =
+          lawResult.searchQueries.length > 0
+            ? lawResult.searchQueries.slice(0, 5)
+            : [`${jurisdiction} ${message.slice(0, 80)} law statute`];
+
+        const allSources: Array<{
+          title: string;
+          url: string;
+          snippet: string;
+          domain?: string;
+          score?: number;
+        }> = [];
+
+        // Run searches sequentially and emit progress per query
+        for (let i = 0; i < queries.length; i++) {
+          const query = queries[i];
+          emit({
+            step: "searching",
+            data: { query, index: i + 1, total: queries.length },
+          });
+
+          try {
+            const results = await search(query, baseUrl, 5);
+            allSources.push(...results);
+            emit({
+              step: "search_results",
+              data: {
+                query,
+                count: results.length,
+                sources: results.slice(0, 3).map((r) => ({
+                  title: r.title,
+                  url: r.url,
+                  domain: r.domain,
+                })),
+              },
+            });
+          } catch {
+            // One failed query is non-fatal
+          }
+        }
+
+        // Deduplicate by URL, prefer higher score
+        const seen = new Set<string>();
+        const sources = allSources.filter((r) => {
+          if (!r.url || seen.has(r.url)) return false;
+          seen.add(r.url);
+          return true;
+        });
+
+        emit({
+          step: "sources_ranked",
+          data: {
+            total: sources.length,
+            searchEngine: process.env.TAVILY_API_KEY ? "Tavily" : "DuckDuckGo",
+          },
+        });
+
+        // ── Turn 3: Synthesis (streaming) ─────────────────────────────────
+        emit({
+          step: "synthesizing",
+          data: { message: "Composing legal analysis…" },
+        });
+
+        // Build the full user message with all context
+        let fullUserMessage = message;
+
+        if (attachments?.length) {
+          fullUserMessage += "\n\n--- ATTACHED DOCUMENTS ---";
+          for (const a of attachments) {
+            fullUserMessage += `\n\n[${a.filename}]\n${a.text.slice(0, 8000)}`;
+          }
+        }
+
+        if (lawResult.laws.length > 0) {
+          fullUserMessage += "\n\n--- IDENTIFIED APPLICABLE LAWS ---";
+          for (const law of lawResult.laws) {
+            fullUserMessage += `\n• ${law.citation} (${law.relevance}, confidence ${Math.round(law.confidence * 100)}%) — ${law.applies_because}`;
+          }
+        }
+
+        if (sources.length > 0) {
+          fullUserMessage += "\n\n--- WEB RESEARCH RESULTS (Deep Search) ---";
+          sources.slice(0, 10).forEach((s, i) => {
+            fullUserMessage += `\n\n[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet.slice(0, 800)}`;
+          });
+        }
+
+        let fullAnswer = "";
+        for await (const token of streamSynthesis(
+          provider,
+          model,
+          synthesisPrompt(jurisdiction, mode, citationEnabled),
+          fullUserMessage,
+        )) {
+          fullAnswer += token;
+          emit({ step: "delta", data: { text: token } });
+        }
+
+        // ── Turn 4: Follow-up questions ────────────────────────────────────
+        emit({ step: "follow_up_generating", data: {} });
+
+        let followUpQuestions: string[] = [];
+        try {
+          const fuRes = await complete(provider, model, {
+            systemPrompt: followUpPrompt(jurisdiction),
+            userMessage: `QUESTION: ${message}\n\nANSWER SUMMARY: ${fullAnswer.slice(0, 1500)}`,
+            maxTokens: 400,
+            jsonMode: true,
+          });
+          const fuParsed = JSON.parse(fuRes.text);
+          followUpQuestions = Array.isArray(fuParsed.questions)
+            ? fuParsed.questions
+            : [];
+        } catch {
+          // Non-fatal
+        }
+
+        emit({
+          step: "done",
+          data: {
+            sources: sources.slice(0, 12).map((s) => ({
+              title: s.title,
+              url: s.url,
+              domain: s.domain,
+            })),
+            laws: lawResult.laws,
+            followUpQuestions,
+            wordsInAnswer: fullAnswer.split(/\s+/).length,
+          },
+        });
+      } catch (err) {
+        emit({
+          step: "error",
+          data: {
+            message:
+              err instanceof Error ? err.message : "Agent encountered an error",
+          },
+        });
+      } finally {
+        controller.close();
+      }
+    },
   });
 
-  // Step 3 — synthesize legal answer
-  const answerResult = await complete(provider, model, {
-    systemPrompt: buildLegalSystemPrompt(jurisdiction, mode, citationEnabled),
-    userMessage: buildUserMessage(message, sources, attachments),
-    maxTokens: 2000,
-  });
-
-  return NextResponse.json({
-    answer: answerResult.text,
-    sources,
-    provider,
-    model,
-    usage: {
-      inputTokens: answerResult.inputTokens,
-      outputTokens: answerResult.outputTokens,
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
     },
   });
 }
