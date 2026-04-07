@@ -137,16 +137,29 @@ function GhostModelSelector() {
             </div>
           </div>
 
-          <div className="max-h-72 overflow-y-auto py-1">
-            {GHOST_MODELS.map((model) => {
+          <div className="max-h-80 overflow-y-auto py-1">
+            {GHOST_MODELS.map((model, idx) => {
               const isSelected = model.id === selectedModelId;
               const isRecommended = model.tags.includes("recommended");
               const isGoogle = model.tags.includes("google");
               const needsF16 = model.requiresShaderF16 === true;
+              // Insert a divider before the first shader-f16 model
+              const prevModel = GHOST_MODELS[idx - 1];
+              const showDivider = needsF16 && prevModel && !prevModel.requiresShaderF16;
 
               return (
+                <React.Fragment key={model.id}>
+                  {showDivider && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 mt-1">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-[9px] font-medium text-amber-500/70 uppercase tracking-wide flex items-center gap-1">
+                        <TriangleAlert size={8} />
+                        Requires shader-f16 GPU
+                      </span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                  )}
                 <button
-                  key={model.id}
                   type="button"
                   onClick={() => {
                     setSelectedModelId(model.id);
@@ -203,6 +216,7 @@ function GhostModelSelector() {
                     </div>
                   </div>
                 </button>
+                </React.Fragment>
               );
             })}
           </div>
