@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { DEFAULT_GHOST_MODEL, type GhostModel } from "@/lib/ghost/models";
+import { DEFAULT_GHOST_MODEL } from "@/lib/ghost/models";
 
 export type GhostModelStatus = "idle" | "loading" | "ready" | "error";
 

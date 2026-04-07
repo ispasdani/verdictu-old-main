@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, Ghost, Cpu, AlertTriangle, CheckCircle2, Loader2, Zap } from "lucide-react";
+import { ChevronDown, Ghost, Cpu, AlertTriangle, CheckCircle2, Loader2, Zap, TriangleAlert } from "lucide-react";
 import { useGhostModeStore } from "@/store/ghostModeStore";
 import { GHOST_MODELS, findGhostModel } from "@/lib/ghost/models";
 
@@ -38,10 +38,26 @@ function GhostLoadingBar() {
   if (!enabled || modelStatus === "idle" || modelStatus === "ready") return null;
 
   if (modelStatus === "error") {
+    const isShaderF16 =
+      loadProgress.toLowerCase().includes("shader-f16") ||
+      loadProgress.toLowerCase().includes("required_features") ||
+      loadProgress.toLowerCase().includes("failed to fetch");
+
     return (
-      <div className="flex items-start gap-2 px-2.5 py-2 rounded-md bg-red-50 border border-red-100 text-xs text-red-600">
-        <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-        <span className="leading-snug">{loadProgress || "Failed to load model. WebGPU is required (Chrome/Edge 113+)."}</span>
+      <div className="space-y-1.5 px-0.5">
+        <div className="flex items-start gap-2 px-2.5 py-2 rounded-md bg-red-50 border border-red-100 text-xs text-red-600">
+          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-medium leading-snug block">
+              {isShaderF16 ? "GPU does not support shader-f16" : "Model failed to load"}
+            </span>
+            <span className="text-red-500/80 leading-snug block">
+              {isShaderF16
+                ? "This model requires the WebGPU shader-f16 extension. Switch to Qwen 2.5 1.5B or Qwen 3 4B — they work on all GPUs."
+                : loadProgress || "WebGPU required (Chrome/Edge 113+). Check your internet connection and try again."}
+            </span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -99,7 +115,7 @@ function GhostModelSelector() {
         className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-secondary/60 hover:bg-secondary transition-colors text-xs"
       >
         <Cpu size={11} className="text-muted-foreground shrink-0" />
-        <span className="font-medium text-foreground/70 max-w-[100px] truncate">
+        <span className="font-medium text-foreground/70 max-w-25 truncate">
           {selected.shortName}
         </span>
         {modelStatus === "loading" && (
@@ -126,6 +142,7 @@ function GhostModelSelector() {
               const isSelected = model.id === selectedModelId;
               const isRecommended = model.tags.includes("recommended");
               const isGoogle = model.tags.includes("google");
+              const needsF16 = model.requiresShaderF16 === true;
 
               return (
                 <button
@@ -162,6 +179,15 @@ function GhostModelSelector() {
                           Google
                         </span>
                       )}
+                      {needsF16 && (
+                        <span
+                          className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-amber-50 text-amber-600 border border-amber-100"
+                          title="Requires WebGPU shader-f16 — may not work on all GPUs"
+                        >
+                          <TriangleAlert size={8} />
+                          shader-f16
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] text-muted-foreground/70 mt-0.5 leading-snug">
                       {model.description}
@@ -183,7 +209,9 @@ function GhostModelSelector() {
 
           <div className="px-3 py-2 border-t border-border bg-secondary/20">
             <p className="text-[10px] text-muted-foreground/50 leading-relaxed">
-              Requires Chrome or Edge 113+ with WebGPU enabled. Model is cached after first download.
+              Requires Chrome or Edge 113+ with WebGPU. Models marked{" "}
+              <span className="text-amber-500 font-medium">shader-f16</span>{" "}
+              need a discrete GPU. Cached after first download.
             </p>
           </div>
         </div>

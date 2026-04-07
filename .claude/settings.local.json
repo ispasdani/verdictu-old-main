@@ -19,7 +19,10 @@
       "WebSearch",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:github.com)",
-      "Bash(node -e \"require\\('@mlc-ai/web-llm'\\)\")"
+      "Bash(node -e \"require\\('@mlc-ai/web-llm'\\)\")",
+      "Bash(node -e \" const fs = require\\('fs'\\); const src = fs.readFileSync\\('node_modules/@mlc-ai/web-llm/lib/index.js', 'utf8'\\); // Find all gemma entries const lines = src.split\\('\\\\n'\\); lines.forEach\\(\\(line, i\\) => { if \\(line.toLowerCase\\(\\).includes\\('gemma'\\)\\) { console.log\\(i + ':', line.trim\\(\\).slice\\(0, 200\\)\\); } }\\); \")",
+      "Bash(node -e \" const fs = require\\('fs'\\); const src = fs.readFileSync\\('node_modules/@mlc-ai/web-llm/lib/index.js', 'utf8'\\); const lines = src.split\\('\\\\n'\\); lines.forEach\\(\\(l, i\\) => { if \\(l.includes\\('modelLibURLPrefix'\\) && !l.includes\\('modelLibURLPrefix +'\\)\\) { console.log\\(i+':', l.trim\\(\\).slice\\(0, 300\\)\\); } }\\); \")",
+      "Bash(node -e ':*)"
     ]
   }
 }
