@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useChatComposerStore } from "@/store/chatComposerStore";
 import {
   CheckCircle2,
@@ -18,9 +18,15 @@ import {
   AlertCircle,
   Gavel,
   Layers,
+  Ghost,
+  ShieldCheck,
+  WifiOff,
 } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AIChatInput from "@/components/agent-general/aiChatInput";
+import { useGhostModeStore } from "@/store/ghostModeStore";
+import { useGhostLLM } from "@/hooks/useGhostLLM";
+import { findGhostModel } from "@/lib/ghost/models";
 
 // ─── Spinner verbs ─────────────────────────────────────────────────────────────
 // Cycles through these during long-running steps
@@ -395,6 +401,15 @@ function buildInitialSteps(): AgentStep[] {
   ];
 }
 
+// ─── Ghost mode steps ─────────────────────────────────────────────────────────
+
+function buildGhostSteps(): AgentStep[] {
+  return [
+    { id: "ghost_init", label: "Ghost Mode", icon: Ghost, status: "pending" },
+    { id: "ghost_thinking", label: "Local Inference", icon: Brain, status: "pending" },
+  ];
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
@@ -404,10 +419,19 @@ export default function ChatPage() {
   const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
   const attachments = useChatComposerStore((s) => s.attachments);
 
+  // Ghost mode
+  const ghostEnabled = useGhostModeStore((s) => s.enabled);
+  const ghostModelId = useGhostModeStore((s) => s.selectedModelId);
+  const ghostModelStatus = useGhostModeStore((s) => s.modelStatus);
+  const { generate: ghostGenerate, isReady: ghostIsReady } = useGhostLLM();
+  const ghostModel = findGhostModel(ghostModelId);
+
   const jLabel = jurisdictionLabel(jurisdiction);
 
   // Agent state
-  const [steps, setSteps] = useState<AgentStep[]>(buildInitialSteps);
+  const [steps, setSteps] = useState<AgentStep[]>(() =>
+    ghostEnabled ? buildGhostSteps() : buildInitialSteps(),
+  );
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [statusMsg, setStatusMsg] = useState("Starting…");
   const [answerText, setAnswerText] = useState("");
@@ -423,9 +447,9 @@ export default function ChatPage() {
 
   // ── Step helpers ────────────────────────────────────────────────────────────
 
-  const updateStep = (id: string, patch: Partial<AgentStep>) => {
+  const updateStep = useCallback((id: string, patch: Partial<AgentStep>) => {
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  };
+  }, []);
 
   const toggleStep = (id: string) => {
     setExpandedIds((prev) => {
@@ -436,10 +460,119 @@ export default function ChatPage() {
     });
   };
 
-  // ── SSE consumption ─────────────────────────────────────────────────────────
+  // ── Ghost mode runner ────────────────────────────────────────────────────────
+
+  const runGhost = useCallback(
+    async (ticker: ReturnType<typeof setInterval>) => {
+      // Step 1 — Ghost init
+      updateStep("ghost_init", { status: "running" });
+      setStatusMsg(`Loading ${ghostModel?.name ?? "local model"}…`);
+
+      // Wait for the model to be ready (it may still be loading)
+      if (ghostModelStatus !== "ready" || !ghostIsReady) {
+        setStatusMsg("Waiting for model to finish loading…");
+        // Poll until ready or error
+        await new Promise<void>((resolve, reject) => {
+          const check = setInterval(() => {
+            const status = useGhostModeStore.getState().modelStatus;
+            if (status === "ready") {
+              clearInterval(check);
+              resolve();
+            } else if (status === "error") {
+              clearInterval(check);
+              reject(new Error("Model failed to load. WebGPU required (Chrome/Edge 113+)."));
+            }
+          }, 500);
+        });
+      }
+
+      updateStep("ghost_init", {
+        status: "completed",
+        summary: ghostModel?.name ?? "Local model",
+        detail: (
+          <div className="space-y-1 text-xs text-foreground/70">
+            <div className="flex items-center gap-1.5 py-1 border-b border-border/40">
+              <ShieldCheck size={11} className="text-emerald-500 shrink-0" />
+              <span>Your data never leaves this device</span>
+            </div>
+            <div className="flex items-center gap-1.5 py-1 border-b border-border/40">
+              <WifiOff size={11} className="text-muted-foreground/60 shrink-0" />
+              <span>No internet required for inference</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground">Model</span>
+              <span className="font-medium">{ghostModel?.name}</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground">Provider</span>
+              <span className="font-medium">{ghostModel?.provider}</span>
+            </div>
+          </div>
+        ),
+      });
+
+      // Step 2 — Local inference
+      updateStep("ghost_thinking", { status: "running" });
+      setStatusMsg("Running local inference…");
+
+      const docContext = attachments
+        .filter((a) => a.status === "done" && a.extractedText)
+        .map((a) => `=== ${a.name} ===\n${a.extractedText}`)
+        .join("\n\n");
+
+      const systemPrompt = [
+        `You are a legal AI assistant specializing in ${jurisdictionLabel(jurisdiction)} law.`,
+        `Mode: ${mode}. Citations: ${citationEnabled ? "enabled" : "disabled"}.`,
+        `Be thorough but concise. Use headings where helpful. Cite specific laws or statutes when relevant.`,
+        docContext ? `\n\nAttached documents:\n${docContext}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      await ghostGenerate({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: text },
+        ],
+        onToken: (token) => {
+          answerRef.current += token;
+          setAnswerText(answerRef.current);
+        },
+        onDone: () => {
+          updateStep("ghost_thinking", {
+            status: "completed",
+            summary: `${answerRef.current.split(/\s+/).length} words`,
+          });
+          setStatusMsg("Complete");
+          setIsDone(true);
+        },
+        onError: (err) => {
+          setError(err);
+        },
+      });
+
+      clearInterval(ticker);
+      setIsRunning(false);
+      setElapsedMs(Date.now() - startTimeRef.current);
+    },
+    [
+      ghostModel,
+      ghostModelStatus,
+      ghostIsReady,
+      ghostGenerate,
+      text,
+      mode,
+      jurisdiction,
+      citationEnabled,
+      attachments,
+      updateStep,
+    ],
+  );
+
+  // ── SSE / Ghost dispatch ─────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!text.trim()) return; // No question — nothing to run
+    if (!text.trim()) return;
 
     startTimeRef.current = Date.now();
     setIsRunning(true);
@@ -448,6 +581,15 @@ export default function ChatPage() {
       () => setElapsedMs(Date.now() - startTimeRef.current),
       100,
     );
+
+    if (ghostEnabled) {
+      runGhost(ticker).catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+        clearInterval(ticker);
+        setIsRunning(false);
+      });
+      return () => clearInterval(ticker);
+    }
 
     const run = async () => {
       try {
@@ -729,10 +871,17 @@ export default function ChatPage() {
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
                     {mode} mode
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-xs text-indigo-600">
-                    <Search size={9} />
-                    Deep Search
-                  </span>
+                  {ghostEnabled ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-foreground border border-foreground/20 text-xs text-card">
+                      <Ghost size={9} />
+                      Ghost Mode · {ghostModel?.shortName ?? "Local"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-xs text-indigo-600">
+                      <Search size={9} />
+                      Deep Search
+                    </span>
+                  )}
                   {attachments.length > 0 && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
                       <FileText size={9} />
@@ -744,6 +893,17 @@ export default function ChatPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Ghost mode: model not ready warning ── */}
+          {ghostEnabled && ghostModelStatus === "loading" && !error && (
+            <div className="flex items-start gap-2 px-4 py-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
+              <Ghost size={13} className="shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <span className="font-semibold">Downloading model…</span>
+                {" "}This may take a moment the first time. The model is cached locally after the first download.
+              </div>
+            </div>
+          )}
 
           {/* ── Error ── */}
           {error && (
@@ -764,8 +924,9 @@ export default function ChatPage() {
                 <div className="w-4 h-4 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0">
                   <Sparkles size={8} className="text-foreground/50" />
                 </div>
-                <span className="text-sm font-medium text-foreground">
-                  Legal AI Agent
+                <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                  {ghostEnabled && <Ghost size={12} className="text-foreground/60" />}
+                  {ghostEnabled ? "Ghost AI" : "Legal AI Agent"}
                 </span>
                 {!isDone && !error ? (
                   <span className="text-xs text-muted-foreground/60">

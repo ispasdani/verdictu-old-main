@@ -19,6 +19,7 @@ import {
   type AttachmentAction,
   type AttachmentItem,
 } from "@/store/chatComposerStore";
+import { GhostModeToggle } from "@/components/ghost/GhostModeToggle";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -582,6 +583,9 @@ export default function AIChatInput() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Ghost Mode */}
+            <GhostModeToggle />
+
             {/* Citations toggle */}
             <button
               type="button"
