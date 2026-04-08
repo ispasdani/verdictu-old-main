@@ -21,6 +21,8 @@ import {
   Ghost,
   ShieldCheck,
   WifiOff,
+  Copy,
+  Check,
 } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AIChatInput from "@/components/agent-general/aiChatInput";
@@ -99,11 +101,15 @@ function jurisdictionLabel(j: string): string {
 
 // ─── Simple Markdown renderer ─────────────────────────────────────────────────
 
-function renderMarkdown(text: string): React.ReactNode {
+// Detects common legal citation patterns in prose text and renders them as chips
+const LAW_CHIP_REGEX = /\b((?:Art(?:icle)?\.?\s*\d+(?:\(\d+\))?(?:\([a-z]\))?(?:\s+(?:GDPR|DSA|DMA|AI Act|DSGVO|CCPA|HIPAA|NIS2|ePrivacy|TFEU|ECHR))?)|(?:§+\s*\d+(?:\s*(?:Abs\.|para\.)\s*\d+)?(?:\s+[A-Z][A-Za-z]+)?)|(?:Regulation\s+\(EU\)\s+\d{4}\/\d+)|(?:Directive\s+\d{4}\/\d+\/EU))\b/g;
+
+function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.ReactNode {
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
   let i = 0;
 
+  // Collect table rows for grouped rendering
   while (i < lines.length) {
     const line = lines[i];
 
@@ -113,7 +119,7 @@ function renderMarkdown(text: string): React.ReactNode {
           key={i}
           className="text-base font-semibold text-foreground mt-5 mb-2 first:mt-0"
         >
-          {inline(line.slice(3))}
+          {inline(line.slice(3), onCiteClick)}
         </h2>,
       );
     } else if (line.startsWith("### ")) {
@@ -122,7 +128,7 @@ function renderMarkdown(text: string): React.ReactNode {
           key={i}
           className="text-sm font-semibold text-foreground mt-4 mb-1.5"
         >
-          {inline(line.slice(4))}
+          {inline(line.slice(4), onCiteClick)}
         </h3>,
       );
     } else if (line.startsWith("**Sources**") || line.startsWith("## Sources")) {
@@ -160,7 +166,7 @@ function renderMarkdown(text: string): React.ReactNode {
       } else {
         elements.push(
           <p key={i} className="text-sm text-foreground/70 mb-1">
-            {inline(line)}
+            {inline(line, onCiteClick)}
           </p>,
         );
       }
@@ -168,7 +174,7 @@ function renderMarkdown(text: string): React.ReactNode {
       elements.push(
         <div key={i} className="flex items-start gap-2 text-sm text-foreground/80 mb-1">
           <span className="text-muted-foreground/50 shrink-0 mt-0.5">·</span>
-          <span>{inline(line.slice(2))}</span>
+          <span>{inline(line.slice(2), onCiteClick)}</span>
         </div>,
       );
     } else if (line.match(/^\d+\. /)) {
@@ -179,7 +185,7 @@ function renderMarkdown(text: string): React.ReactNode {
             <span className="w-5 h-5 rounded bg-secondary border border-border text-foreground/50 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
               {numMatch[1]}
             </span>
-            <span>{inline(numMatch[2])}</span>
+            <span>{inline(numMatch[2], onCiteClick)}</span>
           </div>,
         );
       }
@@ -190,18 +196,47 @@ function renderMarkdown(text: string): React.ReactNode {
         </p>,
       );
     } else if (line.startsWith("|")) {
-      // Simple table row — render as-is for now
+      // Collect all consecutive table rows then render as a real table
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].startsWith("|")) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      const [headerRow, , ...bodyRows] = tableLines; // skip separator row
+      const parseRow = (r: string) => r.split("|").slice(1, -1).map((c) => c.trim());
       elements.push(
-        <p key={i} className="text-xs font-mono text-foreground/70 mb-0.5">
-          {line}
-        </p>,
+        <div key={`table-${i}`} className="overflow-x-auto my-3">
+          <table className="text-xs w-full border-collapse">
+            <thead>
+              <tr>
+                {parseRow(headerRow).map((cell, ci) => (
+                  <th key={ci} className="text-left px-3 py-2 bg-secondary border border-border font-semibold text-foreground/80">
+                    {cell}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bodyRows.map((row, ri) => (
+                <tr key={ri} className="even:bg-secondary/30">
+                  {parseRow(row).map((cell, ci) => (
+                    <td key={ci} className="px-3 py-1.5 border border-border text-foreground/70">
+                      {inline(cell, onCiteClick)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
       );
+      continue; // i already advanced
     } else if (line.trim() === "") {
       elements.push(<div key={i} className="h-2" />);
     } else {
       elements.push(
         <p key={i} className="text-sm text-foreground/80 leading-relaxed mb-1">
-          {inline(line)}
+          {inline(line, onCiteClick)}
         </p>,
       );
     }
@@ -212,8 +247,9 @@ function renderMarkdown(text: string): React.ReactNode {
   return <>{elements}</>;
 }
 
-// Inline formatting: **bold**, *italic*, `code`, [n]
-function inline(text: string): React.ReactNode {
+// Inline formatting: **bold**, *italic*, `code`, [n] citations, law chips
+function inline(text: string, onCiteClick?: (n: number) => void): React.ReactNode {
+  // Split on bold, italic, code, citation refs, and law chips
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[\d+\])/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
@@ -230,11 +266,37 @@ function inline(text: string): React.ReactNode {
       );
     }
     if (part.match(/^\[\d+\]$/)) {
+      const n = parseInt(part.slice(1, -1), 10);
       return (
-        <sup key={i} className="text-indigo-600 text-[10px] font-medium cursor-pointer">
+        <sup
+          key={i}
+          onClick={() => onCiteClick?.(n)}
+          className={`text-indigo-600 text-[10px] font-medium ${onCiteClick ? "cursor-pointer hover:text-indigo-800 underline underline-offset-2" : ""}`}
+        >
           {part}
         </sup>
       );
+    }
+    // Detect law citation chips in plain text segments
+    const chipParts: React.ReactNode[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    LAW_CHIP_REGEX.lastIndex = 0;
+    while ((m = LAW_CHIP_REGEX.exec(part)) !== null) {
+      if (m.index > last) chipParts.push(part.slice(last, m.index));
+      chipParts.push(
+        <span
+          key={`chip-${i}-${m.index}`}
+          className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-medium mx-0.5"
+        >
+          {m[0]}
+        </span>,
+      );
+      last = m.index + m[0].length;
+    }
+    if (chipParts.length > 0) {
+      if (last < part.length) chipParts.push(part.slice(last));
+      return <React.Fragment key={i}>{chipParts}</React.Fragment>;
     }
     return part;
   });
@@ -442,8 +504,26 @@ export default function ChatPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [copiedAnswer, setCopiedAnswer] = useState(false);
+  const [highlightedSource, setHighlightedSource] = useState<number | null>(null);
   const startTimeRef = useRef(Date.now());
   const answerRef = useRef("");
+
+  const handleCopyAnswer = useCallback(() => {
+    navigator.clipboard.writeText(answerRef.current).then(() => {
+      setCopiedAnswer(true);
+      setTimeout(() => setCopiedAnswer(false), 2000);
+    });
+  }, []);
+
+  const handleCiteClick = useCallback((n: number) => {
+    setHighlightedSource(n);
+    const el = document.getElementById(`source-${n}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    setTimeout(() => setHighlightedSource(null), 2000);
+  }, []);
 
   // ── Step helpers ────────────────────────────────────────────────────────────
 
@@ -1000,9 +1080,22 @@ export default function ChatPage() {
                 {!isDone && (
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse ml-1" />
                 )}
+                {isDone && (
+                  <button
+                    onClick={handleCopyAnswer}
+                    title="Copy analysis"
+                    className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors px-2 py-1 rounded hover:bg-secondary/60"
+                  >
+                    {copiedAnswer ? (
+                      <><Check size={11} className="text-emerald-600" /><span className="text-emerald-600">Copied</span></>
+                    ) : (
+                      <><Copy size={11} /><span>Copy</span></>
+                    )}
+                  </button>
+                )}
               </div>
               <div className="px-5 py-5">
-                {renderMarkdown(answerText)}
+                {renderMarkdown(answerText, handleCiteClick)}
                 {/* Cursor while streaming */}
                 {!isDone && (
                   <span className="inline-block w-0.5 h-4 bg-foreground/50 animate-pulse ml-0.5 align-text-bottom" />
@@ -1027,16 +1120,21 @@ export default function ChatPage() {
                 {sources.map((s, i) => (
                   <a
                     key={i}
+                    id={`source-${i + 1}`}
                     href={s.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 py-1.5 hover:bg-secondary/50 rounded px-1.5 -mx-1.5 transition-colors group"
+                    className={`flex items-center gap-2 py-1.5 rounded px-1.5 -mx-1.5 transition-colors group ${
+                      highlightedSource === i + 1
+                        ? "bg-indigo-50 border border-indigo-200"
+                        : "hover:bg-secondary/50"
+                    }`}
                   >
-                    <span className="text-[10px] text-muted-foreground/40 w-4 shrink-0 tabular-nums">
+                    <span className={`text-[10px] w-4 shrink-0 tabular-nums font-medium ${highlightedSource === i + 1 ? "text-indigo-600" : "text-muted-foreground/40"}`}>
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-foreground/75 truncate group-hover:text-foreground transition-colors">
+                      <div className={`text-xs truncate transition-colors ${highlightedSource === i + 1 ? "text-indigo-700 font-medium" : "text-foreground/75 group-hover:text-foreground"}`}>
                         {s.title}
                       </div>
                       {s.domain && (
@@ -1047,7 +1145,7 @@ export default function ChatPage() {
                     </div>
                     <ExternalLink
                       size={10}
-                      className="text-muted-foreground/30 group-hover:text-muted-foreground/60 shrink-0 transition-colors"
+                      className={`shrink-0 transition-colors ${highlightedSource === i + 1 ? "text-indigo-400" : "text-muted-foreground/30 group-hover:text-muted-foreground/60"}`}
                     />
                   </a>
                 ))}
@@ -1055,23 +1153,28 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* ── Identified laws (sidebar card) ── */}
+          {/* ── Identified laws ── */}
           {isDone && laws.length > 0 && (
-            <div className="bg-card rounded-lg border border-border overflow-hidden">
-              <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                <Layers size={12} className="text-muted-foreground/60" />
-                <span className="text-sm font-medium text-foreground">
+            <div className="bg-emerald-50/60 rounded-lg border border-emerald-200 overflow-hidden">
+              <div className="px-4 py-3 border-b border-emerald-200 flex items-center gap-2 bg-emerald-50/80">
+                <Layers size={12} className="text-emerald-600" />
+                <span className="text-sm font-medium text-emerald-900">
                   Applicable Laws
                 </span>
+                <span className="text-xs text-emerald-600/60 ml-auto">
+                  {laws.length} identified
+                </span>
               </div>
-              <div className="px-4 py-3 space-y-2">
+              <div className="px-4 py-3 space-y-3">
                 {laws.map((law, i) => (
                   <div key={i} className="flex items-start gap-2.5">
                     <span
                       className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
                         law.relevance === "primary"
-                          ? "bg-indigo-50 text-indigo-700"
-                          : "bg-secondary text-muted-foreground"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : law.relevance === "secondary"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-white/60 text-emerald-600 border border-emerald-100"
                       }`}
                     >
                       {law.relevance === "primary"
@@ -1080,13 +1183,26 @@ export default function ChatPage() {
                           ? "SEC"
                           : "SUPP"}
                     </span>
-                    <div>
-                      <div className="text-xs font-semibold text-foreground/80">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-emerald-900">
                         {law.citation}
                       </div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                      <div className="text-[11px] text-emerald-800/70 mt-0.5 leading-relaxed">
                         {law.applies_because}
                       </div>
+                      {law.confidence > 0 && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <div className="flex-1 h-1 bg-emerald-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-400 rounded-full transition-all"
+                              style={{ width: `${Math.round(law.confidence * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-emerald-600/70 shrink-0 tabular-nums">
+                            {Math.round(law.confidence * 100)}%
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
