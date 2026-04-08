@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
+import { tavilySearch } from "@/lib/search/tavily";
 
 export const runtime = "nodejs";
 
@@ -7,6 +8,8 @@ export interface SearchResult {
   title: string;
   url: string;
   snippet: string;
+  score?: number;
+  domain?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -16,8 +19,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
 
+  // Prefer Tavily when an API key is configured
+  if (process.env.TAVILY_API_KEY) {
+    try {
+      const results = await tavilySearch(query.trim(), maxResults);
+      return NextResponse.json({ results, engine: "tavily" });
+    } catch {
+      // Fall through to DuckDuckGo on Tavily failure
+    }
+  }
+
   const results = await searchDuckDuckGo(query.trim(), maxResults);
-  return NextResponse.json({ results });
+  return NextResponse.json({ results, engine: "duckduckgo" });
 }
 
 async function searchDuckDuckGo(

@@ -20,7 +20,6 @@ import {
   Layers,
   Ghost,
   ShieldCheck,
-  WifiOff,
   Copy,
   Check,
 } from "lucide-react";
@@ -29,6 +28,7 @@ import AIChatInput from "@/components/agent-general/aiChatInput";
 import { useGhostModeStore } from "@/store/ghostModeStore";
 import { useGhostLLM } from "@/hooks/useGhostLLM";
 import { findGhostModel } from "@/lib/ghost/models";
+import { runGhostAgent } from "@/lib/ghost/agent";
 
 // ─── Spinner verbs ─────────────────────────────────────────────────────────────
 // Cycles through these during long-running steps
@@ -468,7 +468,10 @@ function buildInitialSteps(): AgentStep[] {
 function buildGhostSteps(): AgentStep[] {
   return [
     { id: "ghost_init", label: "Ghost Mode", icon: Ghost, status: "pending" },
-    { id: "ghost_thinking", label: "Local Inference", icon: Brain, status: "pending" },
+    { id: "identifying", label: "Law Identification", icon: Brain, status: "pending" },
+    { id: "searching", label: "Deep Search", icon: Search, status: "pending" },
+    { id: "synthesizing", label: "Legal Analysis", icon: Scale, status: "pending" },
+    { id: "follow_up", label: "Follow-up Questions", icon: HelpCircle, status: "pending" },
   ];
 }
 
@@ -544,21 +547,17 @@ export default function ChatPage() {
 
   const runGhost = useCallback(
     async (ticker: ReturnType<typeof setInterval>) => {
-      // Step 1 — Ghost init
+      // ── Phase 1: Wait for local model ─────────────────────────────────────
       updateStep("ghost_init", { status: "running" });
       setStatusMsg(`Loading ${ghostModel?.name ?? "local model"}…`);
 
-      // Wait for the model to be ready (it may still be loading)
       if (ghostModelStatus !== "ready" || !ghostIsReady) {
         setStatusMsg("Waiting for model to finish loading…");
-        // Poll until ready or error
         await new Promise<void>((resolve, reject) => {
           const check = setInterval(() => {
             const status = useGhostModeStore.getState().modelStatus;
-            if (status === "ready") {
-              clearInterval(check);
-              resolve();
-            } else if (status === "error") {
+            if (status === "ready") { clearInterval(check); resolve(); }
+            else if (status === "error") {
               clearInterval(check);
               reject(new Error("Model failed to load. WebGPU required (Chrome/Edge 113+)."));
             }
@@ -573,13 +572,13 @@ export default function ChatPage() {
           <div className="space-y-1 text-xs text-foreground/70">
             <div className="flex items-center gap-1.5 py-1 border-b border-border/40">
               <ShieldCheck size={11} className="text-emerald-500 shrink-0" />
-              <span>Your data never leaves this device</span>
+              <span>Inference runs locally — your data stays on this device</span>
             </div>
             <div className="flex items-center gap-1.5 py-1 border-b border-border/40">
-              <WifiOff size={11} className="text-muted-foreground/60 shrink-0" />
-              <span>No internet required for inference</span>
+              <Search size={11} className="text-muted-foreground/60 shrink-0" />
+              <span>Web search runs server-side for legal sources</span>
             </div>
-            <div className="flex justify-between py-1">
+            <div className="flex justify-between py-1 border-b border-border/40">
               <span className="text-muted-foreground">Model</span>
               <span className="font-medium">{ghostModel?.name}</span>
             </div>
@@ -591,43 +590,120 @@ export default function ChatPage() {
         ),
       });
 
-      // Step 2 — Local inference
-      updateStep("ghost_thinking", { status: "running" });
-      setStatusMsg("Running local inference…");
+      // ── Phase 2: Agent pipeline (law ID → search → synthesis → follow-ups) ─
+      await runGhostAgent({
+        message: text,
+        jurisdiction: jurisdiction.toUpperCase(),
+        mode,
+        citationEnabled,
+        attachments: attachments
+          .filter((a) => a.status === "done" && a.extractedText)
+          .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
+        baseUrl: window.location.origin,
+        generate: ghostGenerate,
+        onEvent: (event) => {
+          switch (event.step) {
+            case "identifying":
+              updateStep("identifying", { status: "running" });
+              setStatusMsg("Identifying applicable laws and statutes…");
+              break;
 
-      const docContext = attachments
-        .filter((a) => a.status === "done" && a.extractedText)
-        .map((a) => `=== ${a.name} ===\n${a.extractedText}`)
-        .join("\n\n");
+            case "laws_found": {
+              const foundLaws = event.laws;
+              setLaws(foundLaws);
+              const primaryLaws = foundLaws.filter((l) => l.relevance === "primary");
+              updateStep("identifying", {
+                status: "completed",
+                summary: `${foundLaws.length} statute${foundLaws.length !== 1 ? "s" : ""} · ${event.domain}`,
+                detail:
+                  foundLaws.length > 0 ? (
+                    <div className="space-y-2">
+                      {foundLaws.map((law, i) => (
+                        <div key={i} className="p-2.5 bg-secondary rounded-md border border-border/60">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-foreground/80">{law.citation}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${law.relevance === "primary" ? "bg-indigo-50 text-indigo-700" : "bg-secondary text-muted-foreground"}`}>
+                              {law.relevance}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">{law.applies_because}</p>
+                          <div className="mt-1.5 h-1 bg-border rounded-full overflow-hidden">
+                            <div className="h-full bg-foreground/30 rounded-full" style={{ width: `${Math.round(law.confidence * 100)}%` }} />
+                          </div>
+                          <div className="text-[10px] text-muted-foreground/50 mt-0.5">{Math.round(law.confidence * 100)}% confidence</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No specific statutes identified — using general legal principles.</p>
+                  ),
+              });
+              setStatusMsg(
+                primaryLaws.length > 0
+                  ? `Found ${primaryLaws.length} primary statute${primaryLaws.length !== 1 ? "s" : ""}…`
+                  : "Proceeding with research…",
+              );
+              break;
+            }
 
-      const systemPrompt = [
-        `You are a legal AI assistant specializing in ${jurisdictionLabel(jurisdiction)} law.`,
-        `Mode: ${mode}. Citations: ${citationEnabled ? "enabled" : "disabled"}.`,
-        `Be thorough but concise. Use headings where helpful. Cite specific laws or statutes when relevant.`,
-        docContext ? `\n\nAttached documents:\n${docContext}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
+            case "searching":
+              updateStep("searching", { status: "running", summary: undefined });
+              setStatusMsg(`Searching ${event.index}/${event.total}: "${event.query.slice(0, 60)}${event.query.length > 60 ? "…" : ""}"`);
+              break;
 
-      await ghostGenerate({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: text },
-        ],
-        onToken: (token) => {
-          answerRef.current += token;
-          setAnswerText(answerRef.current);
-        },
-        onDone: () => {
-          updateStep("ghost_thinking", {
-            status: "completed",
-            summary: `${answerRef.current.split(/\s+/).length} words`,
-          });
-          setStatusMsg("Complete");
-          setIsDone(true);
-        },
-        onError: (err) => {
-          setError(err);
+            case "search_results":
+              setStatusMsg(`Found ${event.count} sources for "${event.query.slice(0, 50)}…"`);
+              break;
+
+            case "sources_ranked":
+              updateStep("searching", {
+                status: "completed",
+                summary: `${event.total} source${event.total !== 1 ? "s" : ""} · ${event.engine}`,
+                detail: (
+                  <p className="text-xs text-muted-foreground">
+                    {event.total} deduplicated sources retrieved via {event.engine}. Ranked by domain authority and relevance.
+                  </p>
+                ),
+              });
+              setStatusMsg(`Ranked ${event.total} sources · beginning synthesis…`);
+              break;
+
+            case "synthesizing":
+              updateStep("synthesizing", { status: "running" });
+              setStatusMsg("Composing legal analysis…");
+              break;
+
+            case "delta":
+              answerRef.current += event.text;
+              setAnswerText(answerRef.current);
+              break;
+
+            case "follow_up_generating":
+              updateStep("synthesizing", {
+                status: "completed",
+                summary: `${answerRef.current.split(/\s+/).length} words`,
+              });
+              updateStep("follow_up", { status: "running" });
+              setStatusMsg("Generating follow-up questions…");
+              break;
+
+            case "done": {
+              setSources(event.sources);
+              if (event.laws.length > 0) setLaws(event.laws);
+              setFollowUpQuestions(event.followUpQuestions);
+              updateStep("follow_up", {
+                status: "completed",
+                summary: `${event.followUpQuestions.length} question${event.followUpQuestions.length !== 1 ? "s" : ""}`,
+              });
+              setStatusMsg("Complete");
+              setIsDone(true);
+              break;
+            }
+
+            case "error":
+              setError(event.message);
+              break;
+          }
         },
       });
 
