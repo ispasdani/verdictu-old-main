@@ -45,6 +45,8 @@ export type GhostStreamOptions = {
   onToken: (token: string) => void;
   onDone: () => void;
   onError: (err: string) => void;
+  /** Max tokens to generate. Defaults to 2000. Pass higher for deep analysis turns. */
+  maxTokens?: number;
 };
 
 export function useGhostLLM() {
@@ -143,7 +145,7 @@ export function useGhostLLM() {
   }, [enabled, selectedModelId, loadModel]);
 
   const generate = useCallback(
-    async ({ messages, onToken, onDone, onError }: GhostStreamOptions) => {
+    async ({ messages, onToken, onDone, onError, maxTokens = 2000 }: GhostStreamOptions) => {
       if (!globalEngine) {
         onError("Ghost mode engine not loaded. Please wait for the model to finish loading.");
         return;
@@ -155,7 +157,7 @@ export function useGhostLLM() {
         const stream = await globalEngine.chat.completions.create({
           messages,
           temperature: 0.4,
-          max_tokens: 1500,
+          max_tokens: maxTokens,
           stream: true,
         });
 

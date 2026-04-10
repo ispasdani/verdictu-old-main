@@ -625,7 +625,7 @@ export default function ChatPage() {
               const domainLabel = event.domain.charAt(0).toUpperCase() + event.domain.slice(1);
               updateStep("classifying", {
                 status: "completed",
-                summary: `${domainLabel} · ${event.needsSearch ? "searching" : "direct"}${event.defenseMode ? " · defense" : ""}`,
+                summary: `${domainLabel} · ${event.needsSearch ? "searching" : "direct"}`,
                 detail: (
                   <div className="space-y-1 text-xs text-foreground/70">
                     <div className="flex justify-between py-1 border-b border-border/40">
@@ -637,10 +637,8 @@ export default function ChatPage() {
                       <span className="font-medium">{event.needsSearch ? "Yes" : "Not needed"}</span>
                     </div>
                     <div className="flex justify-between py-1">
-                      <span className="text-muted-foreground">Mode</span>
-                      <span className={`font-medium ${event.defenseMode ? "text-amber-600" : ""}`}>
-                        {event.defenseMode ? "Defense (unrestricted)" : "Unrestricted"}
-                      </span>
+                      <span className="text-muted-foreground">Stance</span>
+                      <span className="font-medium text-violet-600">Always-on defense · no restrictions</span>
                     </div>
                   </div>
                 ),
@@ -654,13 +652,13 @@ export default function ChatPage() {
                   if (synthIdx === -1) return prev;
                   const searchStep: AgentStep = {
                     id: "searching",
-                    label: "Web Search",
+                    label: "Searching for Exceptions & Gaps",
                     icon: Search,
                     status: "pending",
                   };
                   return [...prev.slice(0, synthIdx), searchStep, ...prev.slice(synthIdx)];
                 });
-                setStatusMsg("Searching the web…");
+                setStatusMsg("Searching for exceptions, exemptions, and legal gaps…");
               } else {
                 setStatusMsg("Generating response…");
               }
@@ -696,7 +694,7 @@ export default function ChatPage() {
 
             case "delta":
               answerRef.current += event.text;
-              setAnswerText(answerRef.current);
+              setAnswerText((answerRef.current));
               break;
 
             case "follow_up_generating":
