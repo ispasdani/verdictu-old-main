@@ -69,20 +69,25 @@ export function useGhostLLM() {
     try {
       const { CreateMLCEngine, hasModelInCache } = await import("@mlc-ai/web-llm");
 
-      // Unload the running engine first
       if (globalEngine) {
-        await globalEngine.unload().catch(() => {});
-        globalEngine = null;
-        globalEngineModelId = null;
+        // Switching to a different model — unload and purge the old model's cache
+        // so stale data doesn't cause Cache.add() to throw "network error".
+        if (globalEngineModelId !== modelId) {
+          await globalEngine.unload().catch(() => {});
+          globalEngine = null;
+          globalEngineModelId = null;
+          setLoadProgress("Clearing previous model cache…", 0);
+          await purgeWebLLMCaches();
+        } else {
+          // Same model, engine exists — shouldn't reach here due to early return above
+          await globalEngine.unload().catch(() => {});
+          globalEngine = null;
+          globalEngineModelId = null;
+        }
       }
+      // On fresh page load (globalEngine === null): skip purge so cached weights survive.
 
-      // Purge all three WebLLM cache buckets so the new model has a clean slate.
-      // deleteModelAllInfoInCache only removes individual entries and can leave stale
-      // data behind, causing Cache.add() to throw "network error" on model switch.
-      setLoadProgress("Clearing previous model cache…", 0);
-      await purgeWebLLMCaches();
-
-      // Check if new model is already cached (e.g. from a prior session after purge)
+      // Check if model is already in the browser cache (e.g. from a prior session)
       const cached = await hasModelInCache(modelId).catch(() => false);
       if (cached) {
         setLoadProgress("Loading from cache…", 10);
