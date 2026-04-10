@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Copy,
   Check,
+  Square,
 } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AIChatInput from "@/components/agent-general/aiChatInput";
@@ -488,7 +489,7 @@ export default function ChatPage() {
   const ghostEnabled = useGhostModeStore((s) => s.enabled);
   const ghostModelId = useGhostModeStore((s) => s.selectedModelId);
   const ghostModelStatus = useGhostModeStore((s) => s.modelStatus);
-  const { generate: ghostGenerate, isReady: ghostIsReady } = useGhostLLM();
+  const { generate: ghostGenerate, isReady: ghostIsReady, abort: ghostAbort } = useGhostLLM();
   const ghostModel = findGhostModel(ghostModelId);
 
   const jLabel = jurisdictionLabel(jurisdiction);
@@ -511,6 +512,7 @@ export default function ChatPage() {
   const [highlightedSource, setHighlightedSource] = useState<number | null>(null);
   const startTimeRef = useRef(Date.now());
   const answerRef = useRef("");
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleCopyAnswer = useCallback(() => {
     navigator.clipboard.writeText(answerRef.current).then(() => {
@@ -527,6 +529,17 @@ export default function ChatPage() {
     }
     setTimeout(() => setHighlightedSource(null), 2000);
   }, []);
+
+  const handleStop = useCallback(() => {
+    if (ghostEnabled) {
+      ghostAbort();
+    } else {
+      abortControllerRef.current?.abort();
+    }
+    setIsRunning(false);
+    setIsDone(true);
+    setStatusMsg("Stopped");
+  }, [ghostEnabled, ghostAbort]);
 
   // ── Step helpers ────────────────────────────────────────────────────────────
 
@@ -748,6 +761,9 @@ export default function ChatPage() {
     }
 
     const run = async () => {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
         const body = {
           message: text,
@@ -763,6 +779,7 @@ export default function ChatPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
+          signal: controller.signal,
         });
 
         if (!res.ok || !res.body) {
@@ -792,6 +809,10 @@ export default function ChatPage() {
           }
         }
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          // User stopped — not an error
+          return;
+        }
         setError(
           err instanceof Error ? err.message : "Connection to agent failed",
         );
@@ -1095,31 +1116,44 @@ export default function ChatPage() {
                 ) : null}
               </div>
 
-              {completedCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const allIds = steps
+              <div className="flex items-center gap-3">
+                {isRunning && !isDone && (
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-500 font-medium transition-colors"
+                    title="Stop generation"
+                  >
+                    <Square size={11} className="fill-current" />
+                    Stop
+                  </button>
+                )}
+                {completedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allIds = steps
+                        .filter((s) => s.status === "completed")
+                        .map((s) => s.id);
+                      const allExpanded = allIds.every((id) =>
+                        expandedIds.has(id),
+                      );
+                      if (allExpanded) {
+                        setExpandedIds(new Set());
+                      } else {
+                        setExpandedIds(new Set(allIds));
+                      }
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
+                  >
+                    {steps
                       .filter((s) => s.status === "completed")
-                      .map((s) => s.id);
-                    const allExpanded = allIds.every((id) =>
-                      expandedIds.has(id),
-                    );
-                    if (allExpanded) {
-                      setExpandedIds(new Set());
-                    } else {
-                      setExpandedIds(new Set(allIds));
-                    }
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
-                >
-                  {steps
-                    .filter((s) => s.status === "completed")
-                    .every((s) => expandedIds.has(s.id))
-                    ? "Collapse all"
-                    : "Expand all"}
-                </button>
-              )}
+                      .every((s) => expandedIds.has(s.id))
+                      ? "Collapse all"
+                      : "Expand all"}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Status line — Claude Code style */}
