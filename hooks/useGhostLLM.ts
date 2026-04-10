@@ -19,6 +19,19 @@ type MLCEngine = {
   unload: () => Promise<void>;
 };
 
+// WebLLM uses exactly these three cache buckets
+const WEBLLM_CACHES = ["webllm/config", "webllm/model", "webllm/wasm"] as const;
+
+/**
+ * Wipes all WebLLM cache buckets using the native Cache API.
+ * More reliable than deleteModelAllInfoInCache which only removes
+ * individual entries and can leave stale data that causes Cache.add() to fail.
+ */
+async function purgeWebLLMCaches(): Promise<void> {
+  if (typeof caches === "undefined") return;
+  await Promise.all(WEBLLM_CACHES.map((name) => caches.delete(name).catch(() => {})));
+}
+
 // Singleton engine ref shared across all hook instances
 let globalEngine: MLCEngine | null = null;
 let globalEngineModelId: string | null = null;
@@ -54,13 +67,25 @@ export function useGhostLLM() {
     setLoadProgress("Initializing…", 0);
 
     try {
-      const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
+      const { CreateMLCEngine, hasModelInCache } = await import("@mlc-ai/web-llm");
 
-      // Unload previous engine if different model
-      if (globalEngine && globalEngineModelId !== modelId) {
-        await globalEngine.unload();
+      // Unload the running engine first
+      if (globalEngine) {
+        await globalEngine.unload().catch(() => {});
         globalEngine = null;
         globalEngineModelId = null;
+      }
+
+      // Purge all three WebLLM cache buckets so the new model has a clean slate.
+      // deleteModelAllInfoInCache only removes individual entries and can leave stale
+      // data behind, causing Cache.add() to throw "network error" on model switch.
+      setLoadProgress("Clearing previous model cache…", 0);
+      await purgeWebLLMCaches();
+
+      // Check if new model is already cached (e.g. from a prior session after purge)
+      const cached = await hasModelInCache(modelId).catch(() => false);
+      if (cached) {
+        setLoadProgress("Loading from cache…", 10);
       }
 
       const engine = await CreateMLCEngine(modelId, {
@@ -124,7 +149,19 @@ export function useGhostLLM() {
     abortRef.current = true;
   }, []);
 
+  // Manual escape hatch — wipes all WebLLM caches and resets state
+  const clearCache = useCallback(async () => {
+    if (globalEngine) {
+      await globalEngine.unload().catch(() => {});
+      globalEngine = null;
+      globalEngineModelId = null;
+    }
+    await purgeWebLLMCaches();
+    setModelStatus("idle");
+    setLoadProgress("", 0);
+  }, [setModelStatus, setLoadProgress]);
+
   const isReady = modelStatus === "ready" && globalEngine !== null;
 
-  return { loadModel, generate, abort, isReady, modelStatus };
+  return { loadModel, generate, abort, clearCache, isReady, modelStatus };
 }
