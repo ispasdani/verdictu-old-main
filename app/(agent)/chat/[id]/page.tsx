@@ -469,9 +469,9 @@ function buildInitialSteps(): AgentStep[] {
 function buildGhostSteps(): AgentStep[] {
   return [
     { id: "ghost_init", label: "Ghost Mode", icon: Ghost, status: "pending" },
-    { id: "identifying", label: "Law Identification", icon: Brain, status: "pending" },
-    { id: "searching", label: "Deep Search", icon: Search, status: "pending" },
-    { id: "synthesizing", label: "Legal Analysis", icon: Scale, status: "pending" },
+    { id: "classifying", label: "Analyzing Question", icon: Brain, status: "pending" },
+    // "searching" step is inserted dynamically when intent requires web search
+    { id: "synthesizing", label: "Generating Response", icon: Scale, status: "pending" },
     { id: "follow_up", label: "Follow-up Questions", icon: HelpCircle, status: "pending" },
   ];
 }
@@ -589,7 +589,7 @@ export default function ChatPage() {
             </div>
             <div className="flex items-center gap-1.5 py-1 border-b border-border/40">
               <Search size={11} className="text-muted-foreground/60 shrink-0" />
-              <span>Web search runs server-side for legal sources</span>
+              <span>Web search runs server-side only when relevant — LLM stays local</span>
             </div>
             <div className="flex justify-between py-1 border-b border-border/40">
               <span className="text-muted-foreground">Model</span>
@@ -603,7 +603,7 @@ export default function ChatPage() {
         ),
       });
 
-      // ── Phase 2: Agent pipeline (law ID → search → synthesis → follow-ups) ─
+      // ── Phase 2: Agent pipeline (intent detection → optional search → synthesis → follow-ups) ─
       await runGhostAgent({
         message: text,
         jurisdiction: jurisdiction.toUpperCase(),
@@ -616,46 +616,54 @@ export default function ChatPage() {
         generate: ghostGenerate,
         onEvent: (event) => {
           switch (event.step) {
-            case "identifying":
-              updateStep("identifying", { status: "running" });
-              setStatusMsg("Identifying applicable laws and statutes…");
+            case "classifying":
+              updateStep("classifying", { status: "running" });
+              setStatusMsg("Analyzing your question…");
               break;
 
-            case "laws_found": {
-              const foundLaws = event.laws;
-              setLaws(foundLaws);
-              const primaryLaws = foundLaws.filter((l) => l.relevance === "primary");
-              updateStep("identifying", {
+            case "intent": {
+              const domainLabel = event.domain.charAt(0).toUpperCase() + event.domain.slice(1);
+              updateStep("classifying", {
                 status: "completed",
-                summary: `${foundLaws.length} statute${foundLaws.length !== 1 ? "s" : ""} · ${event.domain}`,
-                detail:
-                  foundLaws.length > 0 ? (
-                    <div className="space-y-2">
-                      {foundLaws.map((law, i) => (
-                        <div key={i} className="p-2.5 bg-secondary rounded-md border border-border/60">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-semibold text-foreground/80">{law.citation}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${law.relevance === "primary" ? "bg-indigo-50 text-indigo-700" : "bg-secondary text-muted-foreground"}`}>
-                              {law.relevance}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground leading-relaxed">{law.applies_because}</p>
-                          <div className="mt-1.5 h-1 bg-border rounded-full overflow-hidden">
-                            <div className="h-full bg-foreground/30 rounded-full" style={{ width: `${Math.round(law.confidence * 100)}%` }} />
-                          </div>
-                          <div className="text-[10px] text-muted-foreground/50 mt-0.5">{Math.round(law.confidence * 100)}% confidence</div>
-                        </div>
-                      ))}
+                summary: `${domainLabel} · ${event.needsSearch ? "searching" : "direct"}${event.defenseMode ? " · defense" : ""}`,
+                detail: (
+                  <div className="space-y-1 text-xs text-foreground/70">
+                    <div className="flex justify-between py-1 border-b border-border/40">
+                      <span className="text-muted-foreground">Domain</span>
+                      <span className="font-medium capitalize">{event.domain}</span>
                     </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No specific statutes identified — using general legal principles.</p>
-                  ),
+                    <div className="flex justify-between py-1 border-b border-border/40">
+                      <span className="text-muted-foreground">Web Search</span>
+                      <span className="font-medium">{event.needsSearch ? "Yes" : "Not needed"}</span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-muted-foreground">Mode</span>
+                      <span className={`font-medium ${event.defenseMode ? "text-amber-600" : ""}`}>
+                        {event.defenseMode ? "Defense (unrestricted)" : "Unrestricted"}
+                      </span>
+                    </div>
+                  </div>
+                ),
               });
-              setStatusMsg(
-                primaryLaws.length > 0
-                  ? `Found ${primaryLaws.length} primary statute${primaryLaws.length !== 1 ? "s" : ""}…`
-                  : "Proceeding with research…",
-              );
+
+              // Dynamically insert search step before "synthesizing" if needed
+              if (event.needsSearch) {
+                setSteps((prev) => {
+                  if (prev.some((s) => s.id === "searching")) return prev;
+                  const synthIdx = prev.findIndex((s) => s.id === "synthesizing");
+                  if (synthIdx === -1) return prev;
+                  const searchStep: AgentStep = {
+                    id: "searching",
+                    label: "Web Search",
+                    icon: Search,
+                    status: "pending",
+                  };
+                  return [...prev.slice(0, synthIdx), searchStep, ...prev.slice(synthIdx)];
+                });
+                setStatusMsg("Searching the web…");
+              } else {
+                setStatusMsg("Generating response…");
+              }
               break;
             }
 
@@ -674,16 +682,16 @@ export default function ChatPage() {
                 summary: `${event.total} source${event.total !== 1 ? "s" : ""} · ${event.engine}`,
                 detail: (
                   <p className="text-xs text-muted-foreground">
-                    {event.total} deduplicated sources retrieved via {event.engine}. Ranked by domain authority and relevance.
+                    {event.total} deduplicated sources retrieved via {event.engine}.
                   </p>
                 ),
               });
-              setStatusMsg(`Ranked ${event.total} sources · beginning synthesis…`);
+              setStatusMsg(`${event.total} sources found · generating response…`);
               break;
 
             case "synthesizing":
               updateStep("synthesizing", { status: "running" });
-              setStatusMsg("Composing legal analysis…");
+              setStatusMsg("Generating response…");
               break;
 
             case "delta":
@@ -702,7 +710,6 @@ export default function ChatPage() {
 
             case "done": {
               setSources(event.sources);
-              if (event.laws.length > 0) setLaws(event.laws);
               setFollowUpQuestions(event.followUpQuestions);
               updateStep("follow_up", {
                 status: "completed",
@@ -1185,7 +1192,7 @@ export default function ChatPage() {
                   <Gavel size={10} className="text-foreground/50" />
                 </div>
                 <span className="text-sm font-medium text-foreground">
-                  Legal Analysis
+                  {ghostEnabled ? "Response" : "Legal Analysis"}
                 </span>
                 {!isDone && (
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse ml-1" />

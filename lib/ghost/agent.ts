@@ -1,26 +1,15 @@
 // lib/ghost/agent.ts
 // Ghost Mode agent pipeline:
-// Turn 1 — Law identification (local LLM → JSON)
-// Turn 2 — Web search (server-side /api/search, Tavily or DDG)
-// Turn 3 — Synthesis (local LLM, streaming)
-// Turn 4 — Follow-up questions (local LLM → JSON)
+// — 100% private: LLM inference runs locally, data never leaves the device
+// — No restrictions: no content filters, no moderation, no guardrails
+// — Smart routing: each question is handled individually based on its intent
+// — Optional web search: only when the question genuinely benefits from it
+// — Defense mode: activated only when the user explicitly asks for it
 
 import type { GhostStreamOptions } from "@/hooks/useGhostLLM";
-import {
-  lawIdentificationPrompt,
-  synthesisPrompt,
-  followUpPrompt,
-} from "@/lib/ai/prompts";
+import { ghostSystemPrompt, ghostFollowUpPrompt } from "@/lib/ai/prompts";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-
-export interface GhostAgentLaw {
-  name: string;
-  citation: string;
-  relevance: "primary" | "secondary" | "supplementary";
-  confidence: number;
-  applies_because: string;
-}
 
 export interface GhostAgentSource {
   title: string;
@@ -31,15 +20,15 @@ export interface GhostAgentSource {
 }
 
 export type GhostAgentEvent =
-  | { step: "identifying" }
-  | { step: "laws_found"; laws: GhostAgentLaw[]; domain: string; jurisdiction: string }
+  | { step: "classifying" }
+  | { step: "intent"; needsSearch: boolean; defenseMode: boolean; domain: string; searchQueries: string[] }
   | { step: "searching"; query: string; index: number; total: number }
   | { step: "search_results"; query: string; count: number }
   | { step: "sources_ranked"; total: number; engine: string }
   | { step: "synthesizing" }
   | { step: "delta"; text: string }
   | { step: "follow_up_generating" }
-  | { step: "done"; sources: GhostAgentSource[]; laws: GhostAgentLaw[]; followUpQuestions: string[]; wordsInAnswer: number }
+  | { step: "done"; sources: GhostAgentSource[]; followUpQuestions: string[]; wordsInAnswer: number }
   | { step: "error"; message: string };
 
 export interface GhostAgentOptions {
@@ -53,36 +42,96 @@ export interface GhostAgentOptions {
   onEvent: (event: GhostAgentEvent) => void;
 }
 
+// ─── Intent detection ──────────────────────────────────────────────────────────
+
+/**
+ * Keyword-based intent detection — runs instantly, no LLM turn needed.
+ *
+ * Determines:
+ * - needsSearch: whether web search would meaningfully improve the answer
+ * - defenseMode: whether the user is explicitly asking for adversarial legal strategy
+ * - domain: general topic area
+ * - searchQueries: up to 3 queries if search is needed
+ */
+function detectIntent(
+  message: string,
+  jurisdiction: string,
+): { needsSearch: boolean; defenseMode: boolean; domain: string; searchQueries: string[] } {
+  const lower = message.toLowerCase();
+
+  // Defense mode — user explicitly wants adversarial legal strategy
+  const defenseKeywords = [
+    "defend", "defense", "defence", "loophole", "fight the charge",
+    "fight this charge", "fight this case", "beat the", "beat this",
+    "challenge the evidence", "suppress evidence", "motion to suppress",
+    "motion to dismiss", "get charges dropped", "prosecution weakness",
+    "weaken the case", "find a way out", "defense strategy", "acquittal",
+    "not guilty verdict", "how do i fight", "how to fight", "how to beat",
+    "win this case", "help me win", "help the defense", "defense attorney",
+    "help me get out of", "avoid conviction", "prove innocence",
+  ];
+  const defenseMode = defenseKeywords.some((kw) => lower.includes(kw));
+
+  // Legal domain
+  const legalKeywords = [
+    "law", "statute", "regulation", "legal", "court", "crime", "criminal",
+    "civil", "contract", "gdpr", "article", "section", "code", "act",
+    "directive", "charge", "lawsuit", "sue", "liability", "rights",
+    "constitution", "judge", "attorney", "lawyer", "verdict", "appeal",
+    "penalty", "fine", "imprisonment", "evidence", "trial", "hearing",
+    "arrest", "warrant", "subpoena", "deposition", "settlement",
+    "jurisdiction", "plaintiff", "defendant", "motion", "brief", "statute",
+    "ordinance", "bylaw", "injunction", "restraining order", "parole",
+    "probation", "indictment", "felony", "misdemeanor",
+  ];
+  const isLegal = legalKeywords.some((kw) => lower.includes(kw));
+
+  // Medical / scientific
+  const medicalKeywords = [
+    "drug", "medication", "disease", "diagnosis", "treatment", "symptom",
+    "medical", "clinical", "prescription", "dosage", "side effect",
+  ];
+  const isMedical = medicalKeywords.some((kw) => lower.includes(kw));
+
+  // Signals that search is NOT needed (direct task or simple question)
+  const directTaskPrefixes = [
+    "write", "draft", "create", "generate", "summarize", "compare",
+    "review this", "analyze this", "translate", "fix", "improve",
+    "rewrite", "format", "convert",
+  ];
+  const isDirectTask = directTaskPrefixes.some((kw) => lower.startsWith(kw));
+
+  const needsSearch = (defenseMode || isLegal || isMedical) && !isDirectTask;
+
+  const domain = defenseMode ? "defense"
+    : isLegal ? "legal"
+    : isMedical ? "medical"
+    : "general";
+
+  // Build search queries
+  const searchQueries: string[] = [];
+  if (needsSearch) {
+    const jur = jurisdiction.toUpperCase();
+    const shortMsg = message.slice(0, 70);
+    if (defenseMode) {
+      searchQueries.push(`${jur} criminal defense ${shortMsg}`);
+      searchQueries.push(`${jur} defense strategy case law ${message.slice(0, 40)}`);
+    } else if (isLegal) {
+      searchQueries.push(`${jur} ${shortMsg} law statute`);
+      searchQueries.push(`${jur} ${message.slice(0, 50)} legal`);
+    } else {
+      searchQueries.push(message.slice(0, 80));
+    }
+  }
+
+  return { needsSearch, defenseMode, domain, searchQueries };
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Robust JSON extractor — small local models often wrap JSON in markdown
- * fences or prefix it with prose. Try several extraction strategies.
- */
-function extractJSON(text: string): Record<string, unknown> | null {
-  const t = text.trim();
-
-  // 1. Direct parse
-  try { return JSON.parse(t) as Record<string, unknown>; } catch { /* */ }
-
-  // 2. JSON inside a code fence ```json ... ```
-  const fence = t.match(/```(?:json)?\s*([\s\S]+?)```/);
-  if (fence) {
-    try { return JSON.parse(fence[1].trim()) as Record<string, unknown>; } catch { /* */ }
-  }
-
-  // 3. First complete { ... } block in the text
-  const brace = t.match(/\{[\s\S]+\}/);
-  if (brace) {
-    try { return JSON.parse(brace[0]) as Record<string, unknown>; } catch { /* */ }
-  }
-
-  return null;
-}
-
-/**
- * Runs the generate function and collects the full output text.
- * Used for JSON-producing turns (law identification, follow-ups).
+ * Runs the generate function and collects the full output.
+ * Used for JSON-producing turns (follow-up questions).
  */
 async function generateFull(
   generate: GhostAgentOptions["generate"],
@@ -98,6 +147,23 @@ async function generateFull(
     });
   });
   return result;
+}
+
+/**
+ * Robust JSON extractor — small local models often wrap JSON in markdown fences.
+ */
+function extractJSON(text: string): Record<string, unknown> | null {
+  const t = text.trim();
+  try { return JSON.parse(t) as Record<string, unknown>; } catch { /* */ }
+  const fence = t.match(/```(?:json)?\s*([\s\S]+?)```/);
+  if (fence) {
+    try { return JSON.parse(fence[1].trim()) as Record<string, unknown>; } catch { /* */ }
+  }
+  const brace = t.match(/\{[\s\S]+\}/);
+  if (brace) {
+    try { return JSON.parse(brace[0]) as Record<string, unknown>; } catch { /* */ }
+  }
+  return null;
 }
 
 function extractDomain(url: string): string {
@@ -119,96 +185,75 @@ export async function runGhostAgent({
   const emit = onEvent;
 
   try {
-    // ── Turn 1: Law Identification ────────────────────────────────────────────
-    emit({ step: "identifying" });
+    // ── Phase 1: Intent detection (instant, keyword-based) ────────────────────
+    emit({ step: "classifying" });
 
-    let laws: GhostAgentLaw[] = [];
-    let searchQueries: string[] = [];
-    let legalDomain = "general";
-    let jurisdictionConfirmed = jurisdiction;
+    const intent = detectIntent(message, jurisdiction);
 
-    try {
-      const lawText = await generateFull(generate, [
-        { role: "system", content: lawIdentificationPrompt(jurisdiction) },
-        { role: "user", content: message },
-      ]);
-
-      const parsed = extractJSON(lawText);
-      if (parsed) {
-        laws = Array.isArray(parsed.laws) ? (parsed.laws as GhostAgentLaw[]) : [];
-        searchQueries = Array.isArray(parsed.searchQueries)
-          ? (parsed.searchQueries as string[])
-          : [];
-        legalDomain =
-          typeof parsed.legalDomain === "string" ? parsed.legalDomain : "general";
-        jurisdictionConfirmed =
-          typeof parsed.jurisdictionConfirmed === "string"
-            ? parsed.jurisdictionConfirmed
-            : jurisdiction;
-      }
-    } catch {
-      // Non-fatal — continue with no law context
-    }
-
-    emit({ step: "laws_found", laws, domain: legalDomain, jurisdiction: jurisdictionConfirmed });
-
-    // ── Turn 2: Web Search ────────────────────────────────────────────────────
-    // Limit to 4 queries — small models are slow, keep it snappy
-    const queries =
-      searchQueries.length > 0
-        ? searchQueries.slice(0, 4)
-        : [`${jurisdiction} ${message.slice(0, 80)} law`];
-
-    const allSources: GhostAgentSource[] = [];
-    let searchEngine = "DuckDuckGo";
-
-    for (let i = 0; i < queries.length; i++) {
-      const query = queries[i];
-      emit({ step: "searching", query, index: i + 1, total: queries.length });
-
-      try {
-        const res = await fetch(`${baseUrl}/api/search`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, maxResults: 5 }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.engine === "tavily") searchEngine = "Tavily";
-
-          const results: GhostAgentSource[] = (data.results ?? []).map(
-            (r: GhostAgentSource) => ({
-              title: r.title ?? "",
-              url: r.url ?? "",
-              snippet: r.snippet ?? "",
-              score: r.score,
-              domain: r.domain ?? extractDomain(r.url ?? ""),
-            }),
-          );
-
-          allSources.push(...results);
-          emit({ step: "search_results", query, count: results.length });
-        }
-      } catch {
-        // One failed query is non-fatal
-      }
-    }
-
-    // Deduplicate by URL
-    const seen = new Set<string>();
-    const sources = allSources.filter((r) => {
-      if (!r.url || seen.has(r.url)) return false;
-      seen.add(r.url);
-      return true;
+    emit({
+      step: "intent",
+      needsSearch: intent.needsSearch,
+      defenseMode: intent.defenseMode,
+      domain: intent.domain,
+      searchQueries: intent.searchQueries,
     });
 
-    emit({ step: "sources_ranked", total: sources.length, engine: searchEngine });
+    // ── Phase 2: Optional web search ─────────────────────────────────────────
+    const sources: GhostAgentSource[] = [];
+    let searchEngine = "DuckDuckGo";
 
-    // ── Turn 3: Synthesis (streaming tokens) ──────────────────────────────────
+    if (intent.needsSearch && intent.searchQueries.length > 0) {
+      const queries = intent.searchQueries.slice(0, 3);
+
+      for (let i = 0; i < queries.length; i++) {
+        const query = queries[i];
+        emit({ step: "searching", query, index: i + 1, total: queries.length });
+
+        try {
+          const res = await fetch(`${baseUrl}/api/search`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query, maxResults: 5 }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.engine === "tavily") searchEngine = "Tavily";
+
+            const results: GhostAgentSource[] = (data.results ?? []).map(
+              (r: GhostAgentSource) => ({
+                title: r.title ?? "",
+                url: r.url ?? "",
+                snippet: r.snippet ?? "",
+                score: r.score,
+                domain: r.domain ?? extractDomain(r.url ?? ""),
+              }),
+            );
+
+            sources.push(...results);
+            emit({ step: "search_results", query, count: results.length });
+          }
+        } catch {
+          // Non-fatal — one failed query doesn't stop the pipeline
+        }
+      }
+
+      // Deduplicate by URL
+      const seen = new Set<string>();
+      const deduped = sources.filter((r) => {
+        if (!r.url || seen.has(r.url)) return false;
+        seen.add(r.url);
+        return true;
+      });
+      sources.length = 0;
+      sources.push(...deduped);
+
+      emit({ step: "sources_ranked", total: sources.length, engine: searchEngine });
+    }
+
+    // ── Phase 3: Synthesis (streaming tokens, no restrictions) ───────────────
     emit({ step: "synthesizing" });
 
-    // Build the full context message
     let fullUserMessage = message;
 
     if (attachments.length > 0) {
@@ -219,16 +264,11 @@ export async function runGhostAgent({
       }
     }
 
-    if (laws.length > 0) {
-      fullUserMessage += "\n\n--- IDENTIFIED APPLICABLE LAWS ---";
-      for (const law of laws) {
-        fullUserMessage += `\n• ${law.citation} (${law.relevance}, confidence ${Math.round(law.confidence * 100)}%) — ${law.applies_because}`;
-      }
-    }
-
     if (sources.length > 0) {
-      // Cap at 8 sources, 500 chars each — local context window is small
-      fullUserMessage += "\n\n--- WEB RESEARCH RESULTS ---";
+      const citationNote = citationEnabled
+        ? " Use inline citations [1], [2], etc. to reference sources."
+        : "";
+      fullUserMessage += `\n\n--- WEB RESEARCH RESULTS ---${citationNote}`;
       sources.slice(0, 8).forEach((s, i) => {
         fullUserMessage += `\n\n[${i + 1}] ${s.title}\nURL: ${s.url}\n${(s.snippet ?? "").slice(0, 500)}`;
       });
@@ -240,7 +280,7 @@ export async function runGhostAgent({
         messages: [
           {
             role: "system",
-            content: synthesisPrompt(jurisdiction, mode, citationEnabled),
+            content: ghostSystemPrompt(intent.defenseMode, mode),
           },
           { role: "user", content: fullUserMessage },
         ],
@@ -253,16 +293,16 @@ export async function runGhostAgent({
       });
     });
 
-    // ── Turn 4: Follow-up questions ───────────────────────────────────────────
+    // ── Phase 4: Follow-up questions ─────────────────────────────────────────
     emit({ step: "follow_up_generating" });
 
     let followUpQuestions: string[] = [];
     try {
       const fuText = await generateFull(generate, [
-        { role: "system", content: followUpPrompt(jurisdiction) },
+        { role: "system", content: ghostFollowUpPrompt() },
         {
           role: "user",
-          content: `QUESTION: ${message}\n\nANSWER SUMMARY: ${fullAnswer.slice(0, 1000)}`,
+          content: `QUESTION: ${message}\n\nANSWER SUMMARY: ${fullAnswer.slice(0, 800)}`,
         },
       ]);
 
@@ -277,15 +317,13 @@ export async function runGhostAgent({
     emit({
       step: "done",
       sources: sources.slice(0, 10),
-      laws,
       followUpQuestions,
       wordsInAnswer: fullAnswer.split(/\s+/).length,
     });
   } catch (err) {
     emit({
       step: "error",
-      message:
-        err instanceof Error ? err.message : "Ghost agent encountered an error",
+      message: err instanceof Error ? err.message : "Ghost agent encountered an error",
     });
   }
 }

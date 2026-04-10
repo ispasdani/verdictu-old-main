@@ -35,6 +35,10 @@ async function purgeWebLLMCaches(): Promise<void> {
 // Singleton engine ref shared across all hook instances
 let globalEngine: MLCEngine | null = null;
 let globalEngineModelId: string | null = null;
+// Mutex: prevents concurrent loadModel calls from trampling each other.
+// A concurrent call waits for the in-flight load to finish before proceeding,
+// which avoids calling unload() while WebGPU mapAsync operations are still pending.
+let globalLoadingPromise: Promise<void> | null = null;
 
 export type GhostStreamOptions = {
   messages: { role: "user" | "assistant" | "system"; content: string }[];
@@ -63,8 +67,23 @@ export function useGhostLLM() {
       return;
     }
 
+    // If another load is already in progress, wait for it to finish first.
+    // This prevents calling unload() while WebGPU mapAsync operations are pending,
+    // which would produce an AbortError from the unmapped GPU buffer.
+    if (globalLoadingPromise) {
+      await globalLoadingPromise;
+      // The completed load may already have set up the model we want.
+      if (globalEngine && globalEngineModelId === modelId) {
+        setModelStatus("ready");
+        return;
+      }
+    }
+
     setModelStatus("loading");
     setLoadProgress("Initializing…", 0);
+
+    let resolveMutex!: () => void;
+    globalLoadingPromise = new Promise<void>((r) => { resolveMutex = r; });
 
     try {
       const { CreateMLCEngine, hasModelInCache } = await import("@mlc-ai/web-llm");
@@ -109,6 +128,9 @@ export function useGhostLLM() {
         err instanceof Error ? err.message : "Failed to load model. WebGPU required.",
         0,
       );
+    } finally {
+      resolveMutex();
+      globalLoadingPromise = null;
     }
   }, [setModelStatus, setLoadProgress]);
 
