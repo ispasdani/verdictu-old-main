@@ -981,7 +981,9 @@ export default function ChatPage() {
         clearInterval(ticker);
         setIsRunning(false);
       });
-      return () => clearInterval(ticker);
+      // ghostAbort() is synchronous and safe to call on cleanup —
+      // stops the WebLLM token loop without tearing down the engine.
+      return () => { clearInterval(ticker); ghostAbort(); };
     }
 
     if (ghostOpenEnabled) {
@@ -990,7 +992,9 @@ export default function ChatPage() {
         clearInterval(ticker);
         setIsRunning(false);
       });
-      return () => clearInterval(ticker);
+      // Abort the SSE fetch so a React StrictMode double-invoke or a
+      // hot-reload doesn't leave a zombie stream writing to answerRef.
+      return () => { clearInterval(ticker); abortControllerRef.current?.abort(); };
     }
 
     const run = async () => {
@@ -1058,9 +1062,9 @@ export default function ChatPage() {
     };
 
     run();
-    return () => clearInterval(ticker);
+    return () => { clearInterval(ticker); abortControllerRef.current?.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ghostEnabled, ghostOpenEnabled]);
+  }, []);
 
   // ── Event dispatcher ────────────────────────────────────────────────────────
 
