@@ -29,6 +29,7 @@ import AIChatInput from "@/components/agent-general/aiChatInput";
 import { useGhostModeStore } from "@/store/ghostModeStore";
 import { useGhostLLM } from "@/hooks/useGhostLLM";
 import { findGhostModel } from "@/lib/ghost/models";
+import { findGhostApiModel } from "@/lib/ghost/openrouter";
 import { runGhostAgent } from "@/lib/ghost/agent";
 
 // ─── Spinner verbs ─────────────────────────────────────────────────────────────
@@ -476,6 +477,16 @@ function buildGhostSteps(): AgentStep[] {
   ];
 }
 
+function buildGhostOpenSteps(): AgentStep[] {
+  return [
+    { id: "ghost_init", label: "Ghost Open", icon: Ghost, status: "pending" },
+    { id: "classifying", label: "Analyzing Question", icon: Brain, status: "pending" },
+    // "searching" step is inserted dynamically when intent requires web search
+    { id: "synthesizing", label: "Generating Response", icon: Scale, status: "pending" },
+    { id: "follow_up", label: "Follow-up Questions", icon: HelpCircle, status: "pending" },
+  ];
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
@@ -485,19 +496,26 @@ export default function ChatPage() {
   const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
   const attachments = useChatComposerStore((s) => s.attachments);
 
-  // Ghost mode
+  // Ghost mode (local WebLLM)
   const ghostEnabled = useGhostModeStore((s) => s.enabled);
   const ghostModelId = useGhostModeStore((s) => s.selectedModelId);
   const ghostModelStatus = useGhostModeStore((s) => s.modelStatus);
   const { generate: ghostGenerate, isReady: ghostIsReady, abort: ghostAbort } = useGhostLLM();
   const ghostModel = findGhostModel(ghostModelId);
 
+  // Ghost Open mode (OpenRouter cloud)
+  const ghostOpenEnabled = useGhostModeStore((s) => s.ghostOpenEnabled);
+  const ghostOpenModelId = useGhostModeStore((s) => s.selectedApiModelId);
+  const ghostOpenModel = findGhostApiModel(ghostOpenModelId);
+
   const jLabel = jurisdictionLabel(jurisdiction);
 
   // Agent state
-  const [steps, setSteps] = useState<AgentStep[]>(() =>
-    ghostEnabled ? buildGhostSteps() : buildInitialSteps(),
-  );
+  const [steps, setSteps] = useState<AgentStep[]>(() => {
+    if (ghostEnabled) return buildGhostSteps();
+    if (ghostOpenEnabled) return buildGhostOpenSteps();
+    return buildInitialSteps();
+  });
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [statusMsg, setStatusMsg] = useState("Starting…");
   const [answerText, setAnswerText] = useState("");
@@ -534,6 +552,7 @@ export default function ChatPage() {
     if (ghostEnabled) {
       ghostAbort();
     } else {
+      // Ghost Open and normal agent both use abortController (SSE fetch)
       abortControllerRef.current?.abort();
     }
     setIsRunning(false);
@@ -743,6 +762,206 @@ export default function ChatPage() {
     ],
   );
 
+  // ── Ghost Open runner (SSE → /api/ghost-api) ────────────────────────────────
+
+  const runGhostOpen = useCallback(
+    async (ticker: ReturnType<typeof setInterval>) => {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      // Mark ghost_init step running
+      updateStep("ghost_init", { status: "running" });
+      setStatusMsg(`Connecting to ${ghostOpenModel?.name ?? "Ghost Open"}…`);
+
+      updateStep("ghost_init", {
+        status: "completed",
+        summary: ghostOpenModel?.shortName ?? "Cloud model",
+        detail: (
+          <div className="space-y-1 text-xs text-foreground/70">
+            <div className="flex justify-between py-1 border-b border-border/40">
+              <span className="text-muted-foreground">Model</span>
+              <span className="font-medium">{ghostOpenModel?.name}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-border/40">
+              <span className="text-muted-foreground">Provider</span>
+              <span className="font-medium">{ghostOpenModel?.provider}</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground">Category</span>
+              <span className="font-medium capitalize">{ghostOpenModel?.category}</span>
+            </div>
+          </div>
+        ),
+      });
+
+      try {
+        const body = {
+          message: text,
+          jurisdiction: jurisdiction.toUpperCase(),
+          mode,
+          citationEnabled,
+          attachments: attachments
+            .filter((a) => a.status === "done" && a.extractedText)
+            .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
+          modelId: ghostOpenModelId,
+        };
+
+        const res = await fetch("/api/ghost-api", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+
+          for (const part of parts) {
+            if (!part.startsWith("data: ")) continue;
+            try {
+              // Ghost API emits events in the same shape as GhostAgentEvent
+              const event = JSON.parse(part.slice(6));
+              switch (event.step) {
+                case "classifying":
+                  updateStep("classifying", { status: "running" });
+                  setStatusMsg("Analyzing your question…");
+                  break;
+
+                case "intent": {
+                  const domain = event.domain ?? "legal";
+                  const domainLabel = domain.charAt(0).toUpperCase() + domain.slice(1);
+                  updateStep("classifying", {
+                    status: "completed",
+                    summary: `${domainLabel} · ${event.needsSearch ? "searching" : "direct"}`,
+                    detail: (
+                      <div className="space-y-1 text-xs text-foreground/70">
+                        <div className="flex justify-between py-1 border-b border-border/40">
+                          <span className="text-muted-foreground">Domain</span>
+                          <span className="font-medium capitalize">{domain}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-border/40">
+                          <span className="text-muted-foreground">Web Search</span>
+                          <span className="font-medium">{event.needsSearch ? "Yes" : "Not needed"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-muted-foreground">Stance</span>
+                          <span className="font-medium text-amber-600">Always-on defense · no restrictions</span>
+                        </div>
+                      </div>
+                    ),
+                  });
+                  if (event.needsSearch) {
+                    setSteps((prev) => {
+                      if (prev.some((s) => s.id === "searching")) return prev;
+                      const synthIdx = prev.findIndex((s) => s.id === "synthesizing");
+                      if (synthIdx === -1) return prev;
+                      const searchStep: AgentStep = {
+                        id: "searching",
+                        label: "Searching for Exceptions & Gaps",
+                        icon: Search,
+                        status: "pending",
+                      };
+                      return [...prev.slice(0, synthIdx), searchStep, ...prev.slice(synthIdx)];
+                    });
+                    setStatusMsg("Searching for exceptions, exemptions, and legal gaps…");
+                  } else {
+                    setStatusMsg("Generating response…");
+                  }
+                  break;
+                }
+
+                case "searching":
+                  updateStep("searching", { status: "running", summary: undefined });
+                  setStatusMsg(`Searching ${event.index}/${event.total}: "${(event.query as string).slice(0, 60)}${(event.query as string).length > 60 ? "…" : ""}"`);
+                  break;
+
+                case "search_results":
+                  setStatusMsg(`Found ${event.count} sources for "${(event.query as string).slice(0, 50)}…"`);
+                  break;
+
+                case "sources_ranked":
+                  updateStep("searching", {
+                    status: "completed",
+                    summary: `${event.total} source${event.total !== 1 ? "s" : ""} · ${event.engine}`,
+                    detail: (
+                      <p className="text-xs text-muted-foreground">
+                        {event.total} deduplicated sources retrieved via {event.engine}.
+                      </p>
+                    ),
+                  });
+                  setStatusMsg(`${event.total} sources found · generating response…`);
+                  break;
+
+                case "synthesizing":
+                  updateStep("synthesizing", { status: "running" });
+                  setStatusMsg("Generating response…");
+                  break;
+
+                case "delta":
+                  answerRef.current += event.text;
+                  setAnswerText(answerRef.current);
+                  break;
+
+                case "follow_up_generating":
+                  updateStep("synthesizing", {
+                    status: "completed",
+                    summary: `${answerRef.current.split(/\s+/).length} words`,
+                  });
+                  updateStep("follow_up", { status: "running" });
+                  setStatusMsg("Generating follow-up questions…");
+                  break;
+
+                case "done":
+                  setSources(event.sources ?? []);
+                  setFollowUpQuestions(event.followUpQuestions ?? []);
+                  updateStep("follow_up", {
+                    status: "completed",
+                    summary: `${(event.followUpQuestions ?? []).length} question${(event.followUpQuestions ?? []).length !== 1 ? "s" : ""}`,
+                  });
+                  setStatusMsg("Complete");
+                  setIsDone(true);
+                  break;
+
+                case "error":
+                  setError(event.message);
+                  break;
+              }
+            } catch {
+              // Malformed chunk — skip
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : String(err));
+      }
+
+      clearInterval(ticker);
+      setIsRunning(false);
+      setElapsedMs(Date.now() - startTimeRef.current);
+    },
+    [
+      ghostOpenModel,
+      ghostOpenModelId,
+      text,
+      mode,
+      jurisdiction,
+      citationEnabled,
+      attachments,
+      updateStep,
+    ],
+  );
+
   // ── SSE / Ghost dispatch ─────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -758,6 +977,15 @@ export default function ChatPage() {
 
     if (ghostEnabled) {
       runGhost(ticker).catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+        clearInterval(ticker);
+        setIsRunning(false);
+      });
+      return () => clearInterval(ticker);
+    }
+
+    if (ghostOpenEnabled) {
+      runGhostOpen(ticker).catch((err) => {
         setError(err instanceof Error ? err.message : String(err));
         clearInterval(ticker);
         setIsRunning(false);
@@ -832,7 +1060,7 @@ export default function ChatPage() {
     run();
     return () => clearInterval(ticker);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ghostEnabled, ghostOpenEnabled]);
 
   // ── Event dispatcher ────────────────────────────────────────────────────────
 
@@ -1056,7 +1284,12 @@ export default function ChatPage() {
                   {ghostEnabled ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-foreground border border-foreground/20 text-xs text-card">
                       <Ghost size={9} />
-                      Ghost Mode · {ghostModel?.shortName ?? "Local"}
+                      Ghost · {ghostModel?.shortName ?? "Local"}
+                    </span>
+                  ) : ghostOpenEnabled ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                      <Ghost size={9} />
+                      Ghost Open · {ghostOpenModel?.shortName ?? "Cloud"}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-xs text-indigo-600">
@@ -1107,8 +1340,8 @@ export default function ChatPage() {
                   <Sparkles size={8} className="text-foreground/50" />
                 </div>
                 <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                  {ghostEnabled && <Ghost size={12} className="text-foreground/60" />}
-                  {ghostEnabled ? "Ghost AI" : "Legal AI Agent"}
+                  {(ghostEnabled || ghostOpenEnabled) && <Ghost size={12} className="text-foreground/60" />}
+                  {ghostEnabled ? "Ghost AI" : ghostOpenEnabled ? "Ghost Open AI" : "Legal AI Agent"}
                 </span>
                 {!isDone && !error ? (
                   <span className="text-xs text-muted-foreground/60">
