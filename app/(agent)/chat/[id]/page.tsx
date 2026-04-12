@@ -104,9 +104,13 @@ function jurisdictionLabel(j: string): string {
 // ─── Simple Markdown renderer ─────────────────────────────────────────────────
 
 // Detects common legal citation patterns in prose text and renders them as chips
-const LAW_CHIP_REGEX = /\b((?:Art(?:icle)?\.?\s*\d+(?:\(\d+\))?(?:\([a-z]\))?(?:\s+(?:GDPR|DSA|DMA|AI Act|DSGVO|CCPA|HIPAA|NIS2|ePrivacy|TFEU|ECHR))?)|(?:§+\s*\d+(?:\s*(?:Abs\.|para\.)\s*\d+)?(?:\s+[A-Z][A-Za-z]+)?)|(?:Regulation\s+\(EU\)\s+\d{4}\/\d+)|(?:Directive\s+\d{4}\/\d+\/EU))\b/g;
+const LAW_CHIP_REGEX =
+  /\b((?:Art(?:icle)?\.?\s*\d+(?:\(\d+\))?(?:\([a-z]\))?(?:\s+(?:GDPR|DSA|DMA|AI Act|DSGVO|CCPA|HIPAA|NIS2|ePrivacy|TFEU|ECHR))?)|(?:§+\s*\d+(?:\s*(?:Abs\.|para\.)\s*\d+)?(?:\s+[A-Z][A-Za-z]+)?)|(?:Regulation\s+\(EU\)\s+\d{4}\/\d+)|(?:Directive\s+\d{4}\/\d+\/EU))\b/g;
 
-function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.ReactNode {
+function renderMarkdown(
+  text: string,
+  onCiteClick?: (n: number) => void,
+): React.ReactNode {
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
   let i = 0;
@@ -133,7 +137,10 @@ function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.
           {inline(line.slice(4), onCiteClick)}
         </h3>,
       );
-    } else if (line.startsWith("**Sources**") || line.startsWith("## Sources")) {
+    } else if (
+      line.startsWith("**Sources**") ||
+      line.startsWith("## Sources")
+    ) {
       elements.push(
         <div
           key={i}
@@ -174,7 +181,10 @@ function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.
       }
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       elements.push(
-        <div key={i} className="flex items-start gap-2 text-sm text-foreground/80 mb-1">
+        <div
+          key={i}
+          className="flex items-start gap-2 text-sm text-foreground/80 mb-1"
+        >
           <span className="text-muted-foreground/50 shrink-0 mt-0.5">·</span>
           <span>{inline(line.slice(2), onCiteClick)}</span>
         </div>,
@@ -183,7 +193,10 @@ function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.
       const numMatch = line.match(/^(\d+)\. (.+)$/);
       if (numMatch) {
         elements.push(
-          <div key={i} className="flex items-start gap-2.5 text-sm text-foreground/80 mb-1.5">
+          <div
+            key={i}
+            className="flex items-start gap-2.5 text-sm text-foreground/80 mb-1.5"
+          >
             <span className="w-5 h-5 rounded bg-secondary border border-border text-foreground/50 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
               {numMatch[1]}
             </span>
@@ -193,7 +206,10 @@ function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.
       }
     } else if (line.startsWith("*") && line.endsWith("*") && line.length > 2) {
       elements.push(
-        <p key={i} className="text-xs text-muted-foreground italic mt-4 pt-3 border-t border-border/50">
+        <p
+          key={i}
+          className="text-xs text-muted-foreground italic mt-4 pt-3 border-t border-border/50"
+        >
           {line.slice(1, -1)}
         </p>,
       );
@@ -205,14 +221,21 @@ function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.
         i++;
       }
       const [headerRow, , ...bodyRows] = tableLines; // skip separator row
-      const parseRow = (r: string) => r.split("|").slice(1, -1).map((c) => c.trim());
+      const parseRow = (r: string) =>
+        r
+          .split("|")
+          .slice(1, -1)
+          .map((c) => c.trim());
       elements.push(
         <div key={`table-${i}`} className="overflow-x-auto my-3">
           <table className="text-xs w-full border-collapse">
             <thead>
               <tr>
                 {parseRow(headerRow).map((cell, ci) => (
-                  <th key={ci} className="text-left px-3 py-2 bg-secondary border border-border font-semibold text-foreground/80">
+                  <th
+                    key={ci}
+                    className="text-left px-3 py-2 bg-secondary border border-border font-semibold text-foreground/80"
+                  >
                     {cell}
                   </th>
                 ))}
@@ -222,7 +245,10 @@ function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.
               {bodyRows.map((row, ri) => (
                 <tr key={ri} className="even:bg-secondary/30">
                   {parseRow(row).map((cell, ci) => (
-                    <td key={ci} className="px-3 py-1.5 border border-border text-foreground/70">
+                    <td
+                      key={ci}
+                      className="px-3 py-1.5 border border-border text-foreground/70"
+                    >
                       {inline(cell, onCiteClick)}
                     </td>
                   ))}
@@ -250,19 +276,29 @@ function renderMarkdown(text: string, onCiteClick?: (n: number) => void): React.
 }
 
 // Inline formatting: **bold**, *italic*, `code`, [n] citations, law chips
-function inline(text: string, onCiteClick?: (n: number) => void): React.ReactNode {
+function inline(
+  text: string,
+  onCiteClick?: (n: number) => void,
+): React.ReactNode {
   // Split on bold, italic, code, citation refs, and law chips
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[\d+\])/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
+      return (
+        <strong key={i} className="font-semibold text-foreground">
+          {part.slice(2, -2)}
+        </strong>
+      );
     }
     if (part.startsWith("*") && part.endsWith("*")) {
       return <em key={i}>{part.slice(1, -1)}</em>;
     }
     if (part.startsWith("`") && part.endsWith("`")) {
       return (
-        <code key={i} className="px-1 py-0.5 bg-secondary rounded text-xs font-mono text-foreground/80">
+        <code
+          key={i}
+          className="px-1 py-0.5 bg-secondary rounded text-xs font-mono text-foreground/80"
+        >
           {part.slice(1, -1)}
         </code>
       );
@@ -437,7 +473,10 @@ function StepRow({
               {expanded ? (
                 <ChevronDown size={12} className="text-muted-foreground/50" />
               ) : (
-                <ChevronRight size={12} className="text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors" />
+                <ChevronRight
+                  size={12}
+                  className="text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors"
+                />
               )}
             </span>
           )}
@@ -457,11 +496,31 @@ function StepRow({
 
 function buildInitialSteps(): AgentStep[] {
   return [
-    { id: "intake", label: "Jurisdiction & Mode", icon: Globe, status: "pending" },
-    { id: "identifying", label: "Law Identification", icon: Brain, status: "pending" },
+    {
+      id: "intake",
+      label: "Jurisdiction & Mode",
+      icon: Globe,
+      status: "pending",
+    },
+    {
+      id: "identifying",
+      label: "Law Identification",
+      icon: Brain,
+      status: "pending",
+    },
     { id: "searching", label: "Deep Search", icon: Search, status: "pending" },
-    { id: "synthesizing", label: "Legal Analysis", icon: Scale, status: "pending" },
-    { id: "follow_up", label: "Follow-up Questions", icon: HelpCircle, status: "pending" },
+    {
+      id: "synthesizing",
+      label: "Legal Analysis",
+      icon: Scale,
+      status: "pending",
+    },
+    {
+      id: "follow_up",
+      label: "Follow-up Questions",
+      icon: HelpCircle,
+      status: "pending",
+    },
   ];
 }
 
@@ -470,20 +529,50 @@ function buildInitialSteps(): AgentStep[] {
 function buildGhostSteps(): AgentStep[] {
   return [
     { id: "ghost_init", label: "Ghost Mode", icon: Ghost, status: "pending" },
-    { id: "classifying", label: "Analyzing Question", icon: Brain, status: "pending" },
+    {
+      id: "classifying",
+      label: "Analyzing Question",
+      icon: Brain,
+      status: "pending",
+    },
     // "searching" step is inserted dynamically when intent requires web search
-    { id: "synthesizing", label: "Generating Response", icon: Scale, status: "pending" },
-    { id: "follow_up", label: "Follow-up Questions", icon: HelpCircle, status: "pending" },
+    {
+      id: "synthesizing",
+      label: "Generating Response",
+      icon: Scale,
+      status: "pending",
+    },
+    {
+      id: "follow_up",
+      label: "Follow-up Questions",
+      icon: HelpCircle,
+      status: "pending",
+    },
   ];
 }
 
 function buildGhostOpenSteps(): AgentStep[] {
   return [
     { id: "ghost_init", label: "Ghost Open", icon: Ghost, status: "pending" },
-    { id: "classifying", label: "Analyzing Question", icon: Brain, status: "pending" },
+    {
+      id: "classifying",
+      label: "Analyzing Question",
+      icon: Brain,
+      status: "pending",
+    },
     // "searching" step is inserted dynamically when intent requires web search
-    { id: "synthesizing", label: "Generating Response", icon: Scale, status: "pending" },
-    { id: "follow_up", label: "Follow-up Questions", icon: HelpCircle, status: "pending" },
+    {
+      id: "synthesizing",
+      label: "Generating Response",
+      icon: Scale,
+      status: "pending",
+    },
+    {
+      id: "follow_up",
+      label: "Follow-up Questions",
+      icon: HelpCircle,
+      status: "pending",
+    },
   ];
 }
 
@@ -500,7 +589,11 @@ export default function ChatPage() {
   const ghostEnabled = useGhostModeStore((s) => s.enabled);
   const ghostModelId = useGhostModeStore((s) => s.selectedModelId);
   const ghostModelStatus = useGhostModeStore((s) => s.modelStatus);
-  const { generate: ghostGenerate, isReady: ghostIsReady, abort: ghostAbort } = useGhostLLM();
+  const {
+    generate: ghostGenerate,
+    isReady: ghostIsReady,
+    abort: ghostAbort,
+  } = useGhostLLM();
   const ghostModel = findGhostModel(ghostModelId);
 
   // Ghost Open mode (OpenRouter cloud)
@@ -527,7 +620,9 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [copiedAnswer, setCopiedAnswer] = useState(false);
-  const [highlightedSource, setHighlightedSource] = useState<number | null>(null);
+  const [highlightedSource, setHighlightedSource] = useState<number | null>(
+    null,
+  );
   const startTimeRef = useRef(Date.now());
   const answerRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -588,10 +683,16 @@ export default function ChatPage() {
         await new Promise<void>((resolve, reject) => {
           const check = setInterval(() => {
             const status = useGhostModeStore.getState().modelStatus;
-            if (status === "ready") { clearInterval(check); resolve(); }
-            else if (status === "error") {
+            if (status === "ready") {
               clearInterval(check);
-              reject(new Error("Model failed to load. WebGPU required (Chrome/Edge 113+)."));
+              resolve();
+            } else if (status === "error") {
+              clearInterval(check);
+              reject(
+                new Error(
+                  "Model failed to load. WebGPU required (Chrome/Edge 113+).",
+                ),
+              );
             }
           }, 500);
         });
@@ -604,11 +705,15 @@ export default function ChatPage() {
           <div className="space-y-1 text-xs text-foreground/70">
             <div className="flex items-center gap-1.5 py-1 border-b border-border/40">
               <ShieldCheck size={11} className="text-emerald-500 shrink-0" />
-              <span>Inference runs locally — your data stays on this device</span>
+              <span>
+                Inference runs locally — your data stays on this device
+              </span>
             </div>
             <div className="flex items-center gap-1.5 py-1 border-b border-border/40">
               <Search size={11} className="text-muted-foreground/60 shrink-0" />
-              <span>Web search runs server-side only when relevant — LLM stays local</span>
+              <span>
+                Web search runs server-side only when relevant — LLM stays local
+              </span>
             </div>
             <div className="flex justify-between py-1 border-b border-border/40">
               <span className="text-muted-foreground">Model</span>
@@ -641,7 +746,8 @@ export default function ChatPage() {
               break;
 
             case "intent": {
-              const domainLabel = event.domain.charAt(0).toUpperCase() + event.domain.slice(1);
+              const domainLabel =
+                event.domain.charAt(0).toUpperCase() + event.domain.slice(1);
               updateStep("classifying", {
                 status: "completed",
                 summary: `${domainLabel} · ${event.needsSearch ? "searching" : "direct"}`,
@@ -649,15 +755,21 @@ export default function ChatPage() {
                   <div className="space-y-1 text-xs text-foreground/70">
                     <div className="flex justify-between py-1 border-b border-border/40">
                       <span className="text-muted-foreground">Domain</span>
-                      <span className="font-medium capitalize">{event.domain}</span>
+                      <span className="font-medium capitalize">
+                        {event.domain}
+                      </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-border/40">
                       <span className="text-muted-foreground">Web Search</span>
-                      <span className="font-medium">{event.needsSearch ? "Yes" : "Not needed"}</span>
+                      <span className="font-medium">
+                        {event.needsSearch ? "Yes" : "Not needed"}
+                      </span>
                     </div>
                     <div className="flex justify-between py-1">
                       <span className="text-muted-foreground">Stance</span>
-                      <span className="font-medium text-violet-600">Always-on defense · no restrictions</span>
+                      <span className="font-medium text-violet-600">
+                        Always-on defense · no restrictions
+                      </span>
                     </div>
                   </div>
                 ),
@@ -667,7 +779,9 @@ export default function ChatPage() {
               if (event.needsSearch) {
                 setSteps((prev) => {
                   if (prev.some((s) => s.id === "searching")) return prev;
-                  const synthIdx = prev.findIndex((s) => s.id === "synthesizing");
+                  const synthIdx = prev.findIndex(
+                    (s) => s.id === "synthesizing",
+                  );
                   if (synthIdx === -1) return prev;
                   const searchStep: AgentStep = {
                     id: "searching",
@@ -675,9 +789,15 @@ export default function ChatPage() {
                     icon: Search,
                     status: "pending",
                   };
-                  return [...prev.slice(0, synthIdx), searchStep, ...prev.slice(synthIdx)];
+                  return [
+                    ...prev.slice(0, synthIdx),
+                    searchStep,
+                    ...prev.slice(synthIdx),
+                  ];
                 });
-                setStatusMsg("Searching for exceptions, exemptions, and legal gaps…");
+                setStatusMsg(
+                  "Searching for exceptions, exemptions, and legal gaps…",
+                );
               } else {
                 setStatusMsg("Generating response…");
               }
@@ -685,12 +805,19 @@ export default function ChatPage() {
             }
 
             case "searching":
-              updateStep("searching", { status: "running", summary: undefined });
-              setStatusMsg(`Searching ${event.index}/${event.total}: "${event.query.slice(0, 60)}${event.query.length > 60 ? "…" : ""}"`);
+              updateStep("searching", {
+                status: "running",
+                summary: undefined,
+              });
+              setStatusMsg(
+                `Searching ${event.index}/${event.total}: "${event.query.slice(0, 60)}${event.query.length > 60 ? "…" : ""}"`,
+              );
               break;
 
             case "search_results":
-              setStatusMsg(`Found ${event.count} sources for "${event.query.slice(0, 50)}…"`);
+              setStatusMsg(
+                `Found ${event.count} sources for "${event.query.slice(0, 50)}…"`,
+              );
               break;
 
             case "sources_ranked":
@@ -699,11 +826,14 @@ export default function ChatPage() {
                 summary: `${event.total} source${event.total !== 1 ? "s" : ""} · ${event.engine}`,
                 detail: (
                   <p className="text-xs text-muted-foreground">
-                    {event.total} deduplicated sources retrieved via {event.engine}.
+                    {event.total} deduplicated sources retrieved via{" "}
+                    {event.engine}.
                   </p>
                 ),
               });
-              setStatusMsg(`${event.total} sources found · generating response…`);
+              setStatusMsg(
+                `${event.total} sources found · generating response…`,
+              );
               break;
 
             case "synthesizing":
@@ -713,7 +843,7 @@ export default function ChatPage() {
 
             case "delta":
               answerRef.current += event.text;
-              setAnswerText((answerRef.current));
+              setAnswerText(answerRef.current);
               break;
 
             case "follow_up_generating":
@@ -788,7 +918,9 @@ export default function ChatPage() {
             </div>
             <div className="flex justify-between py-1">
               <span className="text-muted-foreground">Category</span>
-              <span className="font-medium capitalize">{ghostOpenModel?.category}</span>
+              <span className="font-medium capitalize">
+                {ghostOpenModel?.category}
+              </span>
             </div>
           </div>
         ),
@@ -839,7 +971,8 @@ export default function ChatPage() {
 
                 case "intent": {
                   const domain = event.domain ?? "legal";
-                  const domainLabel = domain.charAt(0).toUpperCase() + domain.slice(1);
+                  const domainLabel =
+                    domain.charAt(0).toUpperCase() + domain.slice(1);
                   updateStep("classifying", {
                     status: "completed",
                     summary: `${domainLabel} · ${event.needsSearch ? "searching" : "direct"}`,
@@ -847,15 +980,23 @@ export default function ChatPage() {
                       <div className="space-y-1 text-xs text-foreground/70">
                         <div className="flex justify-between py-1 border-b border-border/40">
                           <span className="text-muted-foreground">Domain</span>
-                          <span className="font-medium capitalize">{domain}</span>
+                          <span className="font-medium capitalize">
+                            {domain}
+                          </span>
                         </div>
                         <div className="flex justify-between py-1 border-b border-border/40">
-                          <span className="text-muted-foreground">Web Search</span>
-                          <span className="font-medium">{event.needsSearch ? "Yes" : "Not needed"}</span>
+                          <span className="text-muted-foreground">
+                            Web Search
+                          </span>
+                          <span className="font-medium">
+                            {event.needsSearch ? "Yes" : "Not needed"}
+                          </span>
                         </div>
                         <div className="flex justify-between py-1">
                           <span className="text-muted-foreground">Stance</span>
-                          <span className="font-medium text-amber-600">Always-on defense · no restrictions</span>
+                          <span className="font-medium text-amber-600">
+                            Always-on defense · no restrictions
+                          </span>
                         </div>
                       </div>
                     ),
@@ -863,7 +1004,9 @@ export default function ChatPage() {
                   if (event.needsSearch) {
                     setSteps((prev) => {
                       if (prev.some((s) => s.id === "searching")) return prev;
-                      const synthIdx = prev.findIndex((s) => s.id === "synthesizing");
+                      const synthIdx = prev.findIndex(
+                        (s) => s.id === "synthesizing",
+                      );
                       if (synthIdx === -1) return prev;
                       const searchStep: AgentStep = {
                         id: "searching",
@@ -871,9 +1014,15 @@ export default function ChatPage() {
                         icon: Search,
                         status: "pending",
                       };
-                      return [...prev.slice(0, synthIdx), searchStep, ...prev.slice(synthIdx)];
+                      return [
+                        ...prev.slice(0, synthIdx),
+                        searchStep,
+                        ...prev.slice(synthIdx),
+                      ];
                     });
-                    setStatusMsg("Searching for exceptions, exemptions, and legal gaps…");
+                    setStatusMsg(
+                      "Searching for exceptions, exemptions, and legal gaps…",
+                    );
                   } else {
                     setStatusMsg("Generating response…");
                   }
@@ -881,12 +1030,19 @@ export default function ChatPage() {
                 }
 
                 case "searching":
-                  updateStep("searching", { status: "running", summary: undefined });
-                  setStatusMsg(`Searching ${event.index}/${event.total}: "${(event.query as string).slice(0, 60)}${(event.query as string).length > 60 ? "…" : ""}"`);
+                  updateStep("searching", {
+                    status: "running",
+                    summary: undefined,
+                  });
+                  setStatusMsg(
+                    `Searching ${event.index}/${event.total}: "${(event.query as string).slice(0, 60)}${(event.query as string).length > 60 ? "…" : ""}"`,
+                  );
                   break;
 
                 case "search_results":
-                  setStatusMsg(`Found ${event.count} sources for "${(event.query as string).slice(0, 50)}…"`);
+                  setStatusMsg(
+                    `Found ${event.count} sources for "${(event.query as string).slice(0, 50)}…"`,
+                  );
                   break;
 
                 case "sources_ranked":
@@ -895,11 +1051,14 @@ export default function ChatPage() {
                     summary: `${event.total} source${event.total !== 1 ? "s" : ""} · ${event.engine}`,
                     detail: (
                       <p className="text-xs text-muted-foreground">
-                        {event.total} deduplicated sources retrieved via {event.engine}.
+                        {event.total} deduplicated sources retrieved via{" "}
+                        {event.engine}.
                       </p>
                     ),
                   });
-                  setStatusMsg(`${event.total} sources found · generating response…`);
+                  setStatusMsg(
+                    `${event.total} sources found · generating response…`,
+                  );
                   break;
 
                 case "synthesizing":
@@ -983,7 +1142,10 @@ export default function ChatPage() {
       });
       // ghostAbort() is synchronous and safe to call on cleanup —
       // stops the WebLLM token loop without tearing down the engine.
-      return () => { clearInterval(ticker); ghostAbort(); };
+      return () => {
+        clearInterval(ticker);
+        ghostAbort();
+      };
     }
 
     if (ghostOpenEnabled) {
@@ -994,7 +1156,10 @@ export default function ChatPage() {
       });
       // Abort the SSE fetch so a React StrictMode double-invoke or a
       // hot-reload doesn't leave a zombie stream writing to answerRef.
-      return () => { clearInterval(ticker); abortControllerRef.current?.abort(); };
+      return () => {
+        clearInterval(ticker);
+        abortControllerRef.current?.abort();
+      };
     }
 
     const run = async () => {
@@ -1062,7 +1227,10 @@ export default function ChatPage() {
     };
 
     run();
-    return () => { clearInterval(ticker); abortControllerRef.current?.abort(); };
+    return () => {
+      clearInterval(ticker);
+      abortControllerRef.current?.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1091,11 +1259,15 @@ export default function ChatPage() {
               </div>
               <div className="flex justify-between py-1 border-b border-border/40">
                 <span className="text-muted-foreground">Mode</span>
-                <span className="font-medium">{String(data.mode ?? "General")}</span>
+                <span className="font-medium">
+                  {String(data.mode ?? "General")}
+                </span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-muted-foreground">Citations</span>
-                <span className="font-medium">{citationEnabled ? "Enabled" : "Disabled"}</span>
+                <span className="font-medium">
+                  {citationEnabled ? "Enabled" : "Disabled"}
+                </span>
               </div>
             </div>
           ),
@@ -1139,7 +1311,9 @@ export default function ChatPage() {
                     <div className="mt-1.5 h-1 bg-border rounded-full overflow-hidden">
                       <div
                         className="h-full bg-foreground/30 rounded-full"
-                        style={{ width: `${Math.round(law.confidence * 100)}%` }}
+                        style={{
+                          width: `${Math.round(law.confidence * 100)}%`,
+                        }}
                       />
                     </div>
                     <div className="text-[10px] text-muted-foreground/50 mt-0.5">
@@ -1150,7 +1324,8 @@ export default function ChatPage() {
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                No specific statutes identified — using general legal principles.
+                No specific statutes identified — using general legal
+                principles.
               </p>
             ),
         });
@@ -1259,8 +1434,7 @@ export default function ChatPage() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto pt-12">
-        <div className="max-w-3xl mx-auto px-4 pb-8 space-y-3">
-
+        <div className="max-w-5xl mx-auto px-4 pb-8 space-y-3">
           {/* ── User question ── */}
           <div className="bg-secondary/50 rounded-lg border border-border p-5">
             <div className="flex items-start gap-3">
@@ -1318,8 +1492,9 @@ export default function ChatPage() {
             <div className="flex items-start gap-2 px-4 py-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
               <Ghost size={13} className="shrink-0 mt-0.5 animate-pulse" />
               <div>
-                <span className="font-semibold">Downloading model…</span>
-                {" "}This may take a moment the first time. The model is cached locally after the first download.
+                <span className="font-semibold">Downloading model…</span> This
+                may take a moment the first time. The model is cached locally
+                after the first download.
               </div>
             </div>
           )}
@@ -1344,8 +1519,14 @@ export default function ChatPage() {
                   <Sparkles size={8} className="text-foreground/50" />
                 </div>
                 <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                  {(ghostEnabled || ghostOpenEnabled) && <Ghost size={12} className="text-foreground/60" />}
-                  {ghostEnabled ? "Ghost AI" : ghostOpenEnabled ? "Ghost Open AI" : "Legal AI Agent"}
+                  {(ghostEnabled || ghostOpenEnabled) && (
+                    <Ghost size={12} className="text-foreground/60" />
+                  )}
+                  {ghostEnabled
+                    ? "Ghost AI"
+                    : ghostOpenEnabled
+                      ? "Ghost Open AI"
+                      : "Legal AI Agent"}
                 </span>
                 {!isDone && !error ? (
                   <span className="text-xs text-muted-foreground/60">
@@ -1439,9 +1620,15 @@ export default function ChatPage() {
                     className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors px-2 py-1 rounded hover:bg-secondary/60"
                   >
                     {copiedAnswer ? (
-                      <><Check size={11} className="text-emerald-600" /><span className="text-emerald-600">Copied</span></>
+                      <>
+                        <Check size={11} className="text-emerald-600" />
+                        <span className="text-emerald-600">Copied</span>
+                      </>
                     ) : (
-                      <><Copy size={11} /><span>Copy</span></>
+                      <>
+                        <Copy size={11} />
+                        <span>Copy</span>
+                      </>
                     )}
                   </button>
                 )}
@@ -1482,11 +1669,15 @@ export default function ChatPage() {
                         : "hover:bg-secondary/50"
                     }`}
                   >
-                    <span className={`text-[10px] w-4 shrink-0 tabular-nums font-medium ${highlightedSource === i + 1 ? "text-indigo-600" : "text-muted-foreground/40"}`}>
+                    <span
+                      className={`text-[10px] w-4 shrink-0 tabular-nums font-medium ${highlightedSource === i + 1 ? "text-indigo-600" : "text-muted-foreground/40"}`}
+                    >
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className={`text-xs truncate transition-colors ${highlightedSource === i + 1 ? "text-indigo-700 font-medium" : "text-foreground/75 group-hover:text-foreground"}`}>
+                      <div
+                        className={`text-xs truncate transition-colors ${highlightedSource === i + 1 ? "text-indigo-700 font-medium" : "text-foreground/75 group-hover:text-foreground"}`}
+                      >
                         {s.title}
                       </div>
                       {s.domain && (
@@ -1547,7 +1738,9 @@ export default function ChatPage() {
                           <div className="flex-1 h-1 bg-emerald-100 rounded-full overflow-hidden">
                             <div
                               className="h-full bg-emerald-400 rounded-full transition-all"
-                              style={{ width: `${Math.round(law.confidence * 100)}%` }}
+                              style={{
+                                width: `${Math.round(law.confidence * 100)}%`,
+                              }}
                             />
                           </div>
                           <span className="text-[10px] text-emerald-600/70 shrink-0 tabular-nums">
@@ -1586,7 +1779,6 @@ export default function ChatPage() {
               </ul>
             </div>
           )}
-
         </div>
       </div>
 

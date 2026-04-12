@@ -118,7 +118,9 @@ function CompareDocSlot({
           <span className="text-sm font-medium text-foreground/70 text-center px-3 max-w-full truncate">
             {slot.name}
           </span>
-          <span className="text-xs text-muted-foreground">{formatBytes(slot.size)}</span>
+          <span className="text-xs text-muted-foreground">
+            {formatBytes(slot.size)}
+          </span>
           <button
             type="button"
             className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
@@ -134,7 +136,9 @@ function CompareDocSlot({
       ) : (
         <>
           <Paperclip size={18} className="text-muted-foreground/30" />
-          <span className="text-sm text-muted-foreground/60">Click to upload</span>
+          <span className="text-sm text-muted-foreground/60">
+            Click to upload
+          </span>
           <span className="text-xs text-muted-foreground/40">
             {ACCEPTED_EXT_HINTS} · max {MAX_FILE_SIZE_MB}MB
           </span>
@@ -178,7 +182,9 @@ export default function AIChatInput() {
   const addAttachments = useChatComposerStore((s) => s.addAttachments);
   const updateAttachment = useChatComposerStore((s) => s.updateAttachment);
   const removeAttachment = useChatComposerStore((s) => s.removeAttachment);
-  const renameAttachmentInStore = useChatComposerStore((s) => s.renameAttachment);
+  const renameAttachmentInStore = useChatComposerStore(
+    (s) => s.renameAttachment,
+  );
 
   // Derived
   const hasAnyUploading = useMemo(
@@ -204,7 +210,10 @@ export default function AIChatInput() {
       if (ext === "doc") {
         const fd = new FormData();
         fd.append("file", file);
-        const res = await fetch("/api/extract-doc", { method: "POST", body: fd });
+        const res = await fetch("/api/extract-doc", {
+          method: "POST",
+          body: fd,
+        });
         if (!res.ok) throw new Error(`Server error ${res.status}`);
         const data = await res.json();
         text = data.text ?? "";
@@ -212,7 +221,11 @@ export default function AIChatInput() {
         const { extractText } = await import("@/lib/extractText");
         text = await extractText(file);
       }
-      updateAttachment(id, { status: "done", progress: 100, extractedText: text });
+      updateAttachment(id, {
+        status: "done",
+        progress: 100,
+        extractedText: text,
+      });
     } catch (err) {
       updateAttachment(id, {
         status: "error",
@@ -266,7 +279,11 @@ export default function AIChatInput() {
   const retryUpload = (id: string) => {
     const att = attachments.find((a) => a.id === id);
     if (!att) return;
-    updateAttachment(id, { status: "uploading", progress: 0, error: undefined });
+    updateAttachment(id, {
+      status: "uploading",
+      progress: 0,
+      error: undefined,
+    });
     extractTextFromFile(id, att.file);
   };
 
@@ -294,7 +311,10 @@ export default function AIChatInput() {
 
   // ── Compare slot handling ───────────────────────────────────────────────────
 
-  const onSlotChange = (slot: "A" | "B", e: React.ChangeEvent<HTMLInputElement>) => {
+  const onSlotChange = (
+    slot: "A" | "B",
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const data: CompareSlot = { file, name: file.name, size: file.size };
@@ -328,11 +348,30 @@ export default function AIChatInput() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-3xl w-full mx-auto px-4">
+    <div className="max-w-5xl w-full mx-auto px-4">
       {/* Hidden file inputs */}
-      <input ref={fileInputRef} type="file" multiple accept={ACCEPT_ATTR} className="hidden" onChange={onFileInputChange} />
-      <input ref={fileInputARef} type="file" accept={ACCEPT_ATTR} className="hidden" onChange={(e) => onSlotChange("A", e)} />
-      <input ref={fileInputBRef} type="file" accept={ACCEPT_ATTR} className="hidden" onChange={(e) => onSlotChange("B", e)} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept={ACCEPT_ATTR}
+        className="hidden"
+        onChange={onFileInputChange}
+      />
+      <input
+        ref={fileInputARef}
+        type="file"
+        accept={ACCEPT_ATTR}
+        className="hidden"
+        onChange={(e) => onSlotChange("A", e)}
+      />
+      <input
+        ref={fileInputBRef}
+        type="file"
+        accept={ACCEPT_ATTR}
+        className="hidden"
+        onChange={(e) => onSlotChange("B", e)}
+      />
 
       {/* Above-bubble attachment list — General mode only */}
       {mode === "General" && (
@@ -360,10 +399,15 @@ export default function AIChatInput() {
                 className="bg-secondary border border-border rounded-lg p-2 text-sm flex items-center gap-2"
                 title={att.file.name}
               >
-                <FileText size={13} className="text-muted-foreground/60 shrink-0" />
+                <FileText
+                  size={13}
+                  className="text-muted-foreground/60 shrink-0"
+                />
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
-                    <span className="max-w-[220px] truncate text-foreground/70">{att.name}</span>
+                    <span className="max-w-[220px] truncate text-foreground/70">
+                      {att.name}
+                    </span>
                     {att.status === "uploading" && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Loader2 size={11} className="animate-spin" />
@@ -386,13 +430,18 @@ export default function AIChatInput() {
 
                   {att.status === "uploading" && (
                     <div className="h-0.5 w-60 max-w-[60vw] bg-border rounded mt-1.5 overflow-hidden">
-                      <div className="h-full bg-foreground/60 transition-all" style={{ width: `${att.progress}%` }} />
+                      <div
+                        className="h-full bg-foreground/60 transition-all"
+                        style={{ width: `${att.progress}%` }}
+                      />
                     </div>
                   )}
 
                   {att.status === "error" && (
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-red-400">{att.error ?? "Upload failed."}</span>
+                      <span className="text-xs text-red-400">
+                        {att.error ?? "Upload failed."}
+                      </span>
                       <button
                         className="text-xs text-foreground/50 underline underline-offset-2 hover:text-foreground/70"
                         onClick={() => retryUpload(att.id)}
@@ -406,7 +455,9 @@ export default function AIChatInput() {
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <button
                       className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
-                      onClick={() => runAttachmentAction(att.id, "use_as_source")}
+                      onClick={() =>
+                        runAttachmentAction(att.id, "use_as_source")
+                      }
                       disabled={att.status !== "done"}
                       type="button"
                     >
@@ -422,7 +473,9 @@ export default function AIChatInput() {
                     </button>
                     <button
                       className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
-                      onClick={() => runAttachmentAction(att.id, "extract_citations")}
+                      onClick={() =>
+                        runAttachmentAction(att.id, "extract_citations")
+                      }
                       disabled={att.status !== "done"}
                       type="button"
                     >
@@ -464,7 +517,9 @@ export default function AIChatInput() {
       {/* Main chat bubble */}
       <div
         className={`bg-secondary border border-border rounded-lg p-4 transition-colors ${
-          isDragOver && mode === "General" ? "ring-1 ring-foreground/30 border-foreground/30" : ""
+          isDragOver && mode === "General"
+            ? "ring-1 ring-foreground/30 border-foreground/30"
+            : ""
         }`}
         onDragOver={mode === "General" ? onDragOver : undefined}
         onDragLeave={mode === "General" ? onDragLeave : undefined}
@@ -473,7 +528,10 @@ export default function AIChatInput() {
         {/* ── General / Draft body ── */}
         {(mode === "General" || mode === "Draft") && (
           <div className="flex items-start gap-3 mb-4">
-            <Sparkles className="text-muted-foreground/40 mt-1 shrink-0" size={16} />
+            <Sparkles
+              className="text-muted-foreground/40 mt-1 shrink-0"
+              size={16}
+            />
             <textarea
               className="w-full bg-transparent border-none outline-none resize-none text-[15px] text-foreground placeholder:text-muted-foreground/40 min-h-20"
               placeholder={
@@ -542,7 +600,9 @@ export default function AIChatInput() {
                 type="button"
               >
                 <Paperclip size={14} className="text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground">Attach</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Attach
+                </span>
               </button>
             )}
 
@@ -555,12 +615,19 @@ export default function AIChatInput() {
                 className="bg-transparent border-none outline-none text-xs font-medium text-muted-foreground cursor-pointer appearance-none pr-3"
               >
                 {JURISDICTIONS.map((j) => (
-                  <option key={j.value} value={j.value} className="bg-card text-foreground">
+                  <option
+                    key={j.value}
+                    value={j.value}
+                    className="bg-card text-foreground"
+                  >
                     {j.label}
                   </option>
                 ))}
               </select>
-              <ChevronDown size={11} className="text-muted-foreground/50 pointer-events-none absolute right-2" />
+              <ChevronDown
+                size={11}
+                className="text-muted-foreground/50 pointer-events-none absolute right-2"
+              />
             </div>
 
             {/* Mode switcher */}
