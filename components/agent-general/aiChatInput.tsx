@@ -348,7 +348,7 @@ export default function AIChatInput() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl w-full mx-auto px-4">
+    <div className="max-w-5xl w-full mx-auto px-4 my-20">
       {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
