@@ -24,7 +24,6 @@ import { GhostModeToggle } from "@/components/ghost/GhostModeToggle";
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const JURISDICTIONS = [
-  { value: "auto", label: "Auto" },
   { value: "eu", label: "EU" },
   { value: "dk", label: "Denmark" },
   { value: "de", label: "Germany" },
@@ -100,7 +99,8 @@ export default function AIChatInput() {
     () => attachments.some((a) => a.status === "uploading"),
     [attachments],
   );
-  const canSend = !hasAnyUploading;
+  const hasJurisdiction = jurisdiction !== "";
+  const canSend = !hasAnyUploading && hasJurisdiction;
 
   // ── File handling ───────────────────────────────────────────────────────────
 
@@ -422,13 +422,27 @@ export default function AIChatInput() {
             </button>
 
             {/* Jurisdiction */}
-            <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent bg-transparent transition-colors">
-              <Globe size={13} className="text-muted-foreground shrink-0" />
+            <div
+              className={`relative flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md hover:bg-accent bg-transparent transition-colors ${
+                !hasJurisdiction
+                  ? "border-amber-500/60 text-amber-500"
+                  : "border-border"
+              }`}
+            >
+              <Globe
+                size={13}
+                className={!hasJurisdiction ? "text-amber-500 shrink-0" : "text-muted-foreground shrink-0"}
+              />
               <select
                 value={jurisdiction}
                 onChange={(e) => setJurisdiction(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs font-medium text-muted-foreground cursor-pointer appearance-none pr-3"
+                className={`bg-transparent border-none outline-none text-xs font-medium cursor-pointer appearance-none pr-3 ${
+                  !hasJurisdiction ? "text-amber-500" : "text-muted-foreground"
+                }`}
               >
+                <option value="" disabled className="bg-card text-muted-foreground">
+                  Select jurisdiction
+                </option>
                 {JURISDICTIONS.map((j) => (
                   <option
                     key={j.value}
@@ -475,7 +489,13 @@ export default function AIChatInput() {
               className="bg-foreground p-2 rounded-md text-card hover:bg-foreground/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               onClick={handleSend}
               disabled={!canSend}
-              title={hasAnyUploading ? "Please wait for uploads to finish" : "Send"}
+              title={
+                hasAnyUploading
+                  ? "Please wait for uploads to finish"
+                  : !hasJurisdiction
+                    ? "Select a jurisdiction before sending"
+                    : "Send"
+              }
               type="button"
             >
               <ArrowUp size={16} strokeWidth={2.5} />

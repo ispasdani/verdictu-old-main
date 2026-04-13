@@ -48,7 +48,7 @@ export const useChatComposerStore = create<ComposerState>((set) => ({
   attachments: [],
   globalError: null,
   isDragOver: false,
-  jurisdiction: "auto",
+  jurisdiction: "",
   citationEnabled: true,
 
   setText: (text) => set({ text }),
@@ -85,7 +85,7 @@ export const useChatComposerStore = create<ComposerState>((set) => ({
       attachments: [],
       globalError: null,
       isDragOver: false,
-      jurisdiction: "auto",
+      jurisdiction: "",
       citationEnabled: true,
     }),
 }));
