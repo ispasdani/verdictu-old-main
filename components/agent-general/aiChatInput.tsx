@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Paperclip,
@@ -34,8 +34,6 @@ const JURISDICTIONS = [
   { value: "nl", label: "Netherlands" },
 ];
 
-const MODES = ["General", "Compare", "Draft"] as const;
-
 const ACCEPTED_MIME = new Set<string>([
   "application/pdf",
   "application/msword",
@@ -48,11 +46,6 @@ const MAX_FILE_SIZE_MB = 20;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ACCEPT_ATTR =
   ".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type CompareSlot = { file: File | null; name: string; size: number };
-const EMPTY_SLOT: CompareSlot = { file: null, name: "", size: 0 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,105 +71,22 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// ─── CompareDocSlot sub-component ─────────────────────────────────────────────
-
-function CompareDocSlot({
-  label,
-  slot,
-  onPick,
-  onClear,
-}: {
-  label: "A" | "B";
-  slot: CompareSlot;
-  onPick: () => void;
-  onClear: () => void;
-}) {
-  const hasFile = slot.file !== null;
-
-  return (
-    <div
-      className={`flex-1 min-h-32 border-2 border-dashed rounded-md flex flex-col items-center justify-center gap-1.5 transition-all ${
-        hasFile
-          ? "border-foreground/20 bg-foreground/5 cursor-default"
-          : "border-border hover:border-foreground/20 hover:bg-secondary cursor-pointer"
-      }`}
-      onClick={() => !hasFile && onPick()}
-    >
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 mb-0.5">
-        Document {label}
-      </span>
-
-      {hasFile ? (
-        <>
-          <FileText size={20} className="text-foreground/40" />
-          <span className="text-sm font-medium text-foreground/70 text-center px-3 max-w-full truncate">
-            {slot.name}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {formatBytes(slot.size)}
-          </span>
-          <button
-            type="button"
-            className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClear();
-            }}
-          >
-            <X size={11} />
-            Remove
-          </button>
-        </>
-      ) : (
-        <>
-          <Paperclip size={18} className="text-muted-foreground/30" />
-          <span className="text-sm text-muted-foreground/60">
-            Click to upload
-          </span>
-          <span className="text-xs text-muted-foreground/40">
-            {ACCEPTED_EXT_HINTS} · max {MAX_FILE_SIZE_MB}MB
-          </span>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function AIChatInput() {
-  // Refs
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const fileInputARef = useRef<HTMLInputElement | null>(null);
-  const fileInputBRef = useRef<HTMLInputElement | null>(null);
-
   const router = useRouter();
 
-  // Local UI state (compare slots only)
-  const [slotA, setSlotA] = useState<CompareSlot>(EMPTY_SLOT);
-  const [slotB, setSlotB] = useState<CompareSlot>(EMPTY_SLOT);
-
-  // Store — composer content
   const text = useChatComposerStore((s) => s.text);
   const attachments = useChatComposerStore((s) => s.attachments);
   const globalError = useChatComposerStore((s) => s.globalError);
   const isDragOver = useChatComposerStore((s) => s.isDragOver);
-
-  // Store — session settings
-  const mode = useChatComposerStore((s) => s.mode);
   const jurisdiction = useChatComposerStore((s) => s.jurisdiction);
   const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
 
   const setText = useChatComposerStore((s) => s.setText);
   const setGlobalError = useChatComposerStore((s) => s.setGlobalError);
   const setIsDragOver = useChatComposerStore((s) => s.setIsDragOver);
-  const setMode = useChatComposerStore((s) => s.setMode);
   const setJurisdiction = useChatComposerStore((s) => s.setJurisdiction);
   const setCitationEnabled = useChatComposerStore((s) => s.setCitationEnabled);
   const addAttachments = useChatComposerStore((s) => s.addAttachments);
@@ -186,17 +96,13 @@ export default function AIChatInput() {
     (s) => s.renameAttachment,
   );
 
-  // Derived
   const hasAnyUploading = useMemo(
     () => attachments.some((a) => a.status === "uploading"),
     [attachments],
   );
-  const canSend =
-    mode === "Compare"
-      ? slotA.file !== null && slotB.file !== null
-      : !hasAnyUploading;
+  const canSend = !hasAnyUploading;
 
-  // ── General mode file handling ──────────────────────────────────────────────
+  // ── File handling ───────────────────────────────────────────────────────────
 
   const openFilePicker = () => {
     setGlobalError(null);
@@ -279,15 +185,11 @@ export default function AIChatInput() {
   const retryUpload = (id: string) => {
     const att = attachments.find((a) => a.id === id);
     if (!att) return;
-    updateAttachment(id, {
-      status: "uploading",
-      progress: 0,
-      error: undefined,
-    });
+    updateAttachment(id, { status: "uploading", progress: 0, error: undefined });
     extractTextFromFile(id, att.file);
   };
 
-  // ── Drag & Drop (General mode only) ────────────────────────────────────────
+  // ── Drag & Drop ─────────────────────────────────────────────────────────────
 
   const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -309,28 +211,7 @@ export default function AIChatInput() {
     if (dropped && dropped.length > 0) addFiles(dropped);
   };
 
-  // ── Compare slot handling ───────────────────────────────────────────────────
-
-  const onSlotChange = (
-    slot: "A" | "B",
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const data: CompareSlot = { file, name: file.name, size: file.size };
-    if (slot === "A") setSlotA(data);
-    else setSlotB(data);
-    e.target.value = "";
-  };
-
   // ── Send ────────────────────────────────────────────────────────────────────
-
-  const sendTitle =
-    mode === "Compare" && (!slotA.file || !slotB.file)
-      ? "Upload both documents to compare"
-      : hasAnyUploading
-        ? "Please wait for uploads to finish"
-        : "Send";
 
   const handleSend = () => {
     if (!canSend) return;
@@ -349,7 +230,6 @@ export default function AIChatInput() {
 
   return (
     <div className="max-w-5xl w-full mx-auto px-4 my-20">
-      {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
         type="file"
@@ -358,253 +238,188 @@ export default function AIChatInput() {
         className="hidden"
         onChange={onFileInputChange}
       />
-      <input
-        ref={fileInputARef}
-        type="file"
-        accept={ACCEPT_ATTR}
-        className="hidden"
-        onChange={(e) => onSlotChange("A", e)}
-      />
-      <input
-        ref={fileInputBRef}
-        type="file"
-        accept={ACCEPT_ATTR}
-        className="hidden"
-        onChange={(e) => onSlotChange("B", e)}
-      />
 
-      {/* Above-bubble attachment list — General mode only */}
-      {mode === "General" && (
-        <div className="flex flex-col gap-2 mb-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-xs text-muted-foreground/50">
-              Attach {ACCEPTED_EXT_HINTS} (max {MAX_FILE_SIZE_MB}MB each)
-            </div>
-            <div className="text-xs text-muted-foreground/40">
-              Files stay in your workspace / not shared externally
-            </div>
+      {/* Attachment list */}
+      <div className="flex flex-col gap-2 mb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs text-muted-foreground/50">
+            Attach {ACCEPTED_EXT_HINTS} (max {MAX_FILE_SIZE_MB}MB each)
           </div>
-
-          {globalError && (
-            <div className="flex items-center gap-2 text-xs text-red-400">
-              <AlertTriangle size={13} />
-              <span>{globalError}</span>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            {attachments.map((att) => (
-              <div
-                key={att.id}
-                className="bg-secondary border border-border rounded-lg p-2 text-sm flex items-center gap-2"
-                title={att.file.name}
-              >
-                <FileText
-                  size={13}
-                  className="text-muted-foreground/60 shrink-0"
-                />
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <span className="max-w-[220px] truncate text-foreground/70">
-                      {att.name}
-                    </span>
-                    {att.status === "uploading" && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Loader2 size={11} className="animate-spin" />
-                        {att.progress}%
-                      </span>
-                    )}
-                    {att.status === "done" && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Check size={11} />
-                        Ready
-                      </span>
-                    )}
-                    {att.status === "error" && (
-                      <span className="text-xs text-red-400 flex items-center gap-1">
-                        <AlertTriangle size={11} />
-                        Error
-                      </span>
-                    )}
-                  </div>
-
-                  {att.status === "uploading" && (
-                    <div className="h-0.5 w-60 max-w-[60vw] bg-border rounded mt-1.5 overflow-hidden">
-                      <div
-                        className="h-full bg-foreground/60 transition-all"
-                        style={{ width: `${att.progress}%` }}
-                      />
-                    </div>
-                  )}
-
-                  {att.status === "error" && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-red-400">
-                        {att.error ?? "Upload failed."}
-                      </span>
-                      <button
-                        className="text-xs text-foreground/50 underline underline-offset-2 hover:text-foreground/70"
-                        onClick={() => retryUpload(att.id)}
-                        type="button"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <button
-                      className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
-                      onClick={() =>
-                        runAttachmentAction(att.id, "use_as_source")
-                      }
-                      disabled={att.status !== "done"}
-                      type="button"
-                    >
-                      Use as source
-                    </button>
-                    <button
-                      className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
-                      onClick={() => runAttachmentAction(att.id, "summarize")}
-                      disabled={att.status !== "done"}
-                      type="button"
-                    >
-                      Summarize
-                    </button>
-                    <button
-                      className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
-                      onClick={() =>
-                        runAttachmentAction(att.id, "extract_citations")
-                      }
-                      disabled={att.status !== "done"}
-                      type="button"
-                    >
-                      Extract citations
-                    </button>
-                    <button
-                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground/70"
-                      onClick={() => renameAttachment(att.id)}
-                      type="button"
-                    >
-                      Rename
-                    </button>
-                    <button
-                      className="ml-auto p-1 rounded hover:bg-accent transition-colors"
-                      onClick={() => removeAttachment(att.id)}
-                      type="button"
-                    >
-                      <X size={13} className="text-muted-foreground" />
-                    </button>
-                  </div>
-
-                  {att.lastAction && (
-                    <div className="text-[11px] text-muted-foreground/50 mt-1">
-                      Last action:{" "}
-                      {att.lastAction === "use_as_source"
-                        ? "Use as source"
-                        : att.lastAction === "summarize"
-                          ? "Summarize"
-                          : "Extract citations"}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="text-xs text-muted-foreground/40">
+            Files stay in your workspace / not shared externally
           </div>
         </div>
-      )}
+
+        {globalError && (
+          <div className="flex items-center gap-2 text-xs text-red-400">
+            <AlertTriangle size={13} />
+            <span>{globalError}</span>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {attachments.map((att) => (
+            <div
+              key={att.id}
+              className="bg-secondary border border-border rounded-lg p-2 text-sm flex items-center gap-2"
+              title={att.file.name}
+            >
+              <FileText
+                size={13}
+                className="text-muted-foreground/60 shrink-0"
+              />
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="max-w-[220px] truncate text-foreground/70">
+                    {att.name}
+                  </span>
+                  {att.status === "uploading" && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Loader2 size={11} className="animate-spin" />
+                      {att.progress}%
+                    </span>
+                  )}
+                  {att.status === "done" && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Check size={11} />
+                      Ready
+                    </span>
+                  )}
+                  {att.status === "error" && (
+                    <span className="text-xs text-red-400 flex items-center gap-1">
+                      <AlertTriangle size={11} />
+                      Error
+                    </span>
+                  )}
+                </div>
+
+                {att.status === "uploading" && (
+                  <div className="h-0.5 w-60 max-w-[60vw] bg-border rounded mt-1.5 overflow-hidden">
+                    <div
+                      className="h-full bg-foreground/60 transition-all"
+                      style={{ width: `${att.progress}%` }}
+                    />
+                  </div>
+                )}
+
+                {att.status === "error" && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-red-400">
+                      {att.error ?? "Upload failed."}
+                    </span>
+                    <button
+                      className="text-xs text-foreground/50 underline underline-offset-2 hover:text-foreground/70"
+                      onClick={() => retryUpload(att.id)}
+                      type="button"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <button
+                    className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
+                    onClick={() => runAttachmentAction(att.id, "use_as_source")}
+                    disabled={att.status !== "done"}
+                    type="button"
+                  >
+                    Use as source
+                  </button>
+                  <button
+                    className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
+                    onClick={() => runAttachmentAction(att.id, "summarize")}
+                    disabled={att.status !== "done"}
+                    type="button"
+                  >
+                    Summarize
+                  </button>
+                  <button
+                    className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-30 hover:text-foreground/70"
+                    onClick={() =>
+                      runAttachmentAction(att.id, "extract_citations")
+                    }
+                    disabled={att.status !== "done"}
+                    type="button"
+                  >
+                    Extract citations
+                  </button>
+                  <button
+                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground/70"
+                    onClick={() => renameAttachment(att.id)}
+                    type="button"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    className="ml-auto p-1 rounded hover:bg-accent transition-colors"
+                    onClick={() => removeAttachment(att.id)}
+                    type="button"
+                  >
+                    <X size={13} className="text-muted-foreground" />
+                  </button>
+                </div>
+
+                {att.lastAction && (
+                  <div className="text-[11px] text-muted-foreground/50 mt-1">
+                    Last action:{" "}
+                    {att.lastAction === "use_as_source"
+                      ? "Use as source"
+                      : att.lastAction === "summarize"
+                        ? "Summarize"
+                        : "Extract citations"}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Main chat bubble */}
       <div
         className={`bg-secondary border border-border rounded-lg p-4 transition-colors ${
-          isDragOver && mode === "General"
-            ? "ring-1 ring-foreground/30 border-foreground/30"
-            : ""
+          isDragOver ? "ring-1 ring-foreground/30 border-foreground/30" : ""
         }`}
-        onDragOver={mode === "General" ? onDragOver : undefined}
-        onDragLeave={mode === "General" ? onDragLeave : undefined}
-        onDrop={mode === "General" ? onDrop : undefined}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
       >
-        {/* ── General / Draft body ── */}
-        {(mode === "General" || mode === "Draft") && (
-          <div className="flex items-start gap-3 mb-4">
-            <Sparkles
-              className="text-muted-foreground/40 mt-1 shrink-0"
-              size={16}
-            />
-            <textarea
-              className="w-full bg-transparent border-none outline-none resize-none text-[15px] text-foreground placeholder:text-muted-foreground/40 min-h-20"
-              placeholder={
-                mode === "Draft"
-                  ? "Describe the document you'd like to draft…"
-                  : "Ask AI a question or make a request…"
-              }
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-          </div>
-        )}
+        <div className="flex items-start gap-3 mb-4">
+          <Sparkles
+            className="text-muted-foreground/40 mt-1 shrink-0"
+            size={16}
+          />
+          <textarea
+            className="w-full bg-transparent border-none outline-none resize-none text-[15px] text-foreground placeholder:text-muted-foreground/40 min-h-20"
+            placeholder="Ask a question, compare documents, request a draft…"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
 
-        {/* ── Compare body ── */}
-        {mode === "Compare" && (
-          <>
-            <div className="flex gap-3 mb-3">
-              <CompareDocSlot
-                label="A"
-                slot={slotA}
-                onPick={() => fileInputARef.current?.click()}
-                onClear={() => setSlotA(EMPTY_SLOT)}
-              />
-              <div className="flex items-center justify-center shrink-0">
-                <span className="text-[11px] font-bold text-muted-foreground/40 bg-accent border border-border rounded-md w-8 h-8 flex items-center justify-center select-none">
-                  vs
-                </span>
-              </div>
-              <CompareDocSlot
-                label="B"
-                slot={slotB}
-                onPick={() => fileInputBRef.current?.click()}
-                onClear={() => setSlotB(EMPTY_SLOT)}
-              />
-            </div>
-
-            <div className="border-t border-border pt-3 mb-3">
-              <textarea
-                className="w-full bg-transparent border-none outline-none resize-none text-[15px] text-foreground placeholder:text-muted-foreground/40 min-h-11"
-                placeholder="What should we focus on? e.g. termination clauses, liability caps, IP ownership… (optional)"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Drag-over hint (General only) */}
-        {isDragOver && mode === "General" && (
+        {isDragOver && (
           <div className="mb-4 px-3 py-2 rounded-md border border-border bg-accent text-sm text-foreground/60 flex items-center gap-2">
             <Paperclip size={14} className="text-foreground/50" />
             Drop files to attach ({ACCEPTED_EXT_HINTS})
           </div>
         )}
 
-        {/* ── Toolbar ── */}
+        {/* Toolbar */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Attach — General mode only */}
-            {mode === "General" && (
-              <button
-                className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent bg-transparent transition-colors cursor-pointer"
-                onClick={openFilePicker}
-                type="button"
-              >
-                <Paperclip size={14} className="text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground">
-                  Attach
-                </span>
-              </button>
-            )}
+            {/* Attach */}
+            <button
+              className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent bg-transparent transition-colors cursor-pointer"
+              onClick={openFilePicker}
+              type="button"
+            >
+              <Paperclip size={14} className="text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">
+                Attach
+              </span>
+            </button>
 
             {/* Jurisdiction */}
             <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent bg-transparent transition-colors">
@@ -628,24 +443,6 @@ export default function AIChatInput() {
                 size={11}
                 className="text-muted-foreground/50 pointer-events-none absolute right-2"
               />
-            </div>
-
-            {/* Mode switcher */}
-            <div className="flex items-center bg-accent border border-border rounded-md p-0.5 gap-0.5">
-              {MODES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={`px-2.5 py-1 rounded-sm text-xs font-medium transition-colors ${
-                    mode === m
-                      ? "bg-card text-foreground border border-border shadow-sm"
-                      : "text-muted-foreground hover:text-foreground/70"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
             </div>
           </div>
 
@@ -678,7 +475,7 @@ export default function AIChatInput() {
               className="bg-foreground p-2 rounded-md text-card hover:bg-foreground/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               onClick={handleSend}
               disabled={!canSend}
-              title={sendTitle}
+              title={hasAnyUploading ? "Please wait for uploads to finish" : "Send"}
               type="button"
             >
               <ArrowUp size={16} strokeWidth={2.5} />
