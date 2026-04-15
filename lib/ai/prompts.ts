@@ -165,6 +165,39 @@ Rules:
 - Maximum 4 questions`;
 }
 
+// ─── Alignment Check Prompt ───────────────────────────────────────────────────
+
+/**
+ * Turn 2.5 — runs after law identification + search, before synthesis.
+ * Checks whether the gathered context is actually aimed at the user's question.
+ * Fast JSON call (~300 tokens). Non-fatal if it fails.
+ */
+export function alignmentCheckPrompt(): string {
+  return `You are a quality-control layer for a legal AI agent.
+
+Your job: given the user's original question and the context the agent gathered, determine whether the agent is on track to answer what was actually asked.
+
+Return ONLY valid JSON — no markdown, no prose, no code fences:
+{
+  "aligned": true,
+  "originalIntent": "string — one sentence: what the user is actually trying to find out",
+  "correctionNote": ""
+}
+
+If the gathered context is off-track, return:
+{
+  "aligned": false,
+  "originalIntent": "string — what the user is actually trying to find out",
+  "correctionNote": "string — one or two sentences telling the synthesis step what to focus on instead"
+}
+
+Rules:
+- aligned: true if the identified laws and domain map directly to the user's question
+- aligned: false if the agent classified the wrong legal domain, missed the core issue, or the search queries drifted away from the actual question
+- correctionNote must be concrete and actionable — tell the synthesis step exactly what to answer
+- Do not invent laws or facts. Only judge alignment between question and gathered context.`;
+}
+
 // ─── Ghost Mode Prompts ───────────────────────────────────────────────────────
 
 /**

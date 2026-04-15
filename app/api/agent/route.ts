@@ -18,6 +18,7 @@ import {
   lawIdentificationPrompt,
   synthesisPrompt,
   followUpPrompt,
+  alignmentCheckPrompt,
 } from "@/lib/ai/prompts";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -259,6 +260,48 @@ export async function POST(req: NextRequest) {
           },
         });
 
+        // ── Turn 2.5: Alignment Check ──────────────────────────────────────
+        emit({ step: "aligning", data: {} });
+
+        let correctionNote = "";
+        try {
+          const alignmentUserMessage =
+            `ORIGINAL QUESTION: ${message}\n\n` +
+            `IDENTIFIED LEGAL DOMAIN: ${lawResult.legalDomain}\n` +
+            `JURISDICTION: ${lawResult.jurisdictionConfirmed}\n` +
+            `IDENTIFIED LAWS:\n${
+              lawResult.laws.length > 0
+                ? lawResult.laws
+                    .map((l) => `• ${l.citation} — ${l.applies_because}`)
+                    .join("\n")
+                : "(none identified)"
+            }`;
+
+          const alignRes = await complete(provider, model, {
+            systemPrompt: alignmentCheckPrompt(),
+            userMessage: alignmentUserMessage,
+            maxTokens: 300,
+            jsonMode: true,
+          });
+          const alignParsed = JSON.parse(alignRes.text);
+
+          if (alignParsed.aligned === false && alignParsed.correctionNote) {
+            correctionNote = alignParsed.correctionNote;
+          }
+
+          emit({
+            step: "alignment_result",
+            data: {
+              aligned: alignParsed.aligned !== false,
+              originalIntent: alignParsed.originalIntent ?? "",
+              corrected: !!correctionNote,
+            },
+          });
+        } catch {
+          // Non-fatal — proceed without correction
+          emit({ step: "alignment_result", data: { aligned: true, corrected: false } });
+        }
+
         // ── Turn 3: Synthesis (streaming) ─────────────────────────────────
         emit({
           step: "synthesizing",
@@ -267,6 +310,11 @@ export async function POST(req: NextRequest) {
 
         // Build the full user message with all context
         let fullUserMessage = message;
+
+        if (correctionNote) {
+          fullUserMessage =
+            `⚠️ ALIGNMENT CORRECTION: ${correctionNote}\n\n` + fullUserMessage;
+        }
 
         if (attachments?.length) {
           fullUserMessage += "\n\n--- ATTACHED DOCUMENTS ---";
