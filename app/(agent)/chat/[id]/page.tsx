@@ -23,6 +23,9 @@ import {
   Copy,
   Check,
   Square,
+  Cloud as CloudIcon,
+  HardDrive as HardDriveIcon,
+  Download as DownloadIcon,
 } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AIChatInput from "@/components/agent-general/aiChatInput";
@@ -31,6 +34,9 @@ import { useGhostLLM } from "@/hooks/useGhostLLM";
 import { findGhostModel } from "@/lib/ghost/models";
 import { findGhostApiModel } from "@/lib/ghost/openrouter";
 import { runGhostAgent } from "@/lib/ghost/agent";
+import { useChatStorageStore } from "@/store/chatStorageStore";
+import { useImportedChatStore } from "@/store/importedChatStore";
+import { exportChatToFile } from "@/lib/chat/exportChat";
 
 // ─── Spinner verbs ─────────────────────────────────────────────────────────────
 // Cycles through these during long-running steps
@@ -622,6 +628,11 @@ export default function ChatPage() {
 
   const jLabel = jurisdictionLabel(jurisdiction);
 
+  // ── Storage mode + import ─────────────────────────────────────────────────
+  const storageMode = useChatStorageStore((s) => s.storageMode);
+  const pendingImport = useImportedChatStore((s) => s.pendingImport);
+  const clearPendingImport = useImportedChatStore((s) => s.clearPendingImport);
+
   // ── Multi-turn conversation state ─────────────────────────────────────────
   // Completed turns rendered above the current in-progress turn
   const [completedTurns, setCompletedTurns] = useState<CompletedTurn[]>([]);
@@ -636,6 +647,8 @@ export default function ChatPage() {
   const [currentDisplayMode, setCurrentDisplayMode] = useState(mode);
   // Increment to re-trigger the agent effect for follow-ups
   const [runTrigger, setRunTrigger] = useState(0);
+  // Checked synchronously so the agent useEffect can skip its first run for imports
+  const skipInitialRunRef = useRef(!!useImportedChatStore.getState().pendingImport);
 
   // Agent state
   const [steps, setSteps] = useState<AgentStep[]>(() => {
@@ -688,6 +701,53 @@ export default function ChatPage() {
     setIsDone(true);
     setStatusMsg("Stopped");
   }, [ghostEnabled, ghostAbort]);
+
+  // ── Import hydration ─────────────────────────────────────────────────────────
+  // Runs once on mount. If there is a pending import, populate completedTurns
+  // and conversation history from it, then clear the store so the next page
+  // load starts fresh.
+  useEffect(() => {
+    if (!pendingImport) return;
+
+    const turns: CompletedTurn[] = pendingImport.turns.map((t) => ({
+      userText: t.userText,
+      userAttachments: t.userAttachments,
+      userJurisdiction: t.userJurisdiction,
+      userMode: t.userMode,
+      assistantText: t.assistantText,
+      sources: t.sources,
+      laws: t.laws,
+      elapsedMs: t.elapsedMs,
+      isGhost: t.isGhost ?? false,
+      isGhostOpen: t.isGhostOpen ?? false,
+      ghostModelName: t.ghostModelName,
+    }));
+
+    setCompletedTurns(turns);
+
+    // Build the conversation history so follow-ups have full context
+    historyRef.current = turns.flatMap((t) => [
+      { role: "user" as const, content: t.userText },
+      { role: "assistant" as const, content: t.assistantText },
+    ]);
+
+    // Pre-fill display state with the last turn's settings
+    const last = pendingImport.turns.at(-1);
+    if (last) {
+      setCurrentDisplayJurisdiction(last.userJurisdiction);
+      setCurrentDisplayMode(last.userMode);
+    }
+
+    // Reset current-turn display so the input looks ready for a follow-up
+    setCurrentDisplayText("");
+    currentTextRef.current = "";
+
+    // Mark as done so the input isn't disabled
+    setIsDone(true);
+
+    clearPendingImport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Step helpers ────────────────────────────────────────────────────────────
 
@@ -1158,6 +1218,13 @@ export default function ChatPage() {
   // ── SSE / Ghost dispatch ─────────────────────────────────────────────────────
 
   useEffect(() => {
+    // Skip the very first run when a .verdictu file was just imported —
+    // the hydration effect has already populated completedTurns.
+    if (skipInitialRunRef.current) {
+      skipInitialRunRef.current = false;
+      return;
+    }
+
     if (!currentTextRef.current.trim()) return;
 
     startTimeRef.current = Date.now();
@@ -1539,12 +1606,80 @@ export default function ChatPage() {
     ],
   );
 
+  // ── Export handler ───────────────────────────────────────────────────────────
+  const handleExport = useCallback(() => {
+    // Include the in-progress turn if it has a complete answer
+    const turnsToExport = [...completedTurns];
+    if (answerRef.current.trim() && isDone) {
+      turnsToExport.push({
+        userText: currentTextRef.current,
+        userAttachments: currentAttachmentsRef.current
+          .filter((a) => a.status === "done" && a.extractedText)
+          .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
+        userJurisdiction: currentDisplayJurisdiction,
+        userMode: currentDisplayMode,
+        assistantText: answerRef.current,
+        sources,
+        laws,
+        elapsedMs,
+        isGhost: ghostEnabled,
+        isGhostOpen: ghostOpenEnabled,
+        ghostModelName: ghostEnabled
+          ? (ghostModel?.name ?? undefined)
+          : ghostOpenEnabled
+            ? (ghostOpenModel?.name ?? undefined)
+            : undefined,
+      });
+    }
+    exportChatToFile(turnsToExport, {
+      jurisdiction: currentDisplayJurisdiction,
+      mode: currentDisplayMode,
+      citationEnabled,
+    });
+  }, [
+    completedTurns, isDone, sources, laws, elapsedMs,
+    currentDisplayJurisdiction, currentDisplayMode, citationEnabled,
+    ghostEnabled, ghostOpenEnabled, ghostModel, ghostOpenModel,
+  ]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-[98vh] w-[98.5%] pb-10 relative bg-card rounded-lg border border-border shadow-sm">
-      <div className="absolute top-4 left-4 z-10">
+      {/* ── Top bar: sidebar trigger + storage mode + export ── */}
+      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 h-12 border-b border-border/50">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+
+        {/* Storage mode indicator + download button */}
+        <div className="flex items-center gap-2">
+          {/* Storage badge */}
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+              storageMode === "local"
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-indigo-200 bg-indigo-50 text-indigo-700"
+            }`}
+          >
+            {storageMode === "local" ? (
+              <><HardDriveIcon size={10} /> Local only</>
+            ) : (
+              <><CloudIcon size={10} /> Cloud (soon)</>
+            )}
+          </span>
+
+          {/* Download button — visible once there's any content to export */}
+          {(completedTurns.length > 0 || (isDone && answerText)) && (
+            <button
+              type="button"
+              onClick={handleExport}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Download conversation as .verdictu file"
+            >
+              <DownloadIcon size={12} />
+              Download
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Scrollable content */}

@@ -15,6 +15,7 @@ import {
   Settings,
   SquarePen,
 } from "lucide-react";
+import { ImportChatButton } from "@/components/chat/ImportChatButton";
 
 import {
   Sidebar,
@@ -86,8 +87,19 @@ export function AgentSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* ── New / Import chat ── */}
+        <SidebarGroup className="pt-3 pb-1">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <ImportChatButton />
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* ── Features ── */}
-        <SidebarGroup className="pt-4">
+        <SidebarGroup className="pt-2">
           <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30 px-3 mb-1">
             Tools
           </SidebarGroupLabel>

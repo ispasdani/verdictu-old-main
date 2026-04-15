@@ -13,12 +13,15 @@ import {
   Loader2,
   Check,
   Globe,
+  Cloud,
+  HardDrive,
 } from "lucide-react";
 import {
   useChatComposerStore,
   type AttachmentAction,
   type AttachmentItem,
 } from "@/store/chatComposerStore";
+import { useChatStorageStore } from "@/store/chatStorageStore";
 import { GhostModeToggle } from "@/components/ghost/GhostModeToggle";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -89,6 +92,9 @@ export default function AIChatInput({ onSend, disabled: externalDisabled }: AICh
   const isDragOver = useChatComposerStore((s) => s.isDragOver);
   const jurisdiction = useChatComposerStore((s) => s.jurisdiction);
   const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
+
+  const storageMode = useChatStorageStore((s) => s.storageMode);
+  const setStorageMode = useChatStorageStore((s) => s.setStorageMode);
 
   const setText = useChatComposerStore((s) => s.setText);
   const setGlobalError = useChatComposerStore((s) => s.setGlobalError);
@@ -476,6 +482,36 @@ export default function AIChatInput({ onSend, disabled: externalDisabled }: AICh
           <div className="flex items-center gap-3">
             {/* Ghost Mode */}
             <GhostModeToggle />
+
+            {/* Storage mode pill */}
+            <div className="flex items-center rounded-md border border-border overflow-hidden text-xs">
+              <button
+                type="button"
+                onClick={() => setStorageMode("cloud")}
+                className={`flex items-center gap-1 px-2 py-1 transition-colors ${
+                  storageMode === "cloud"
+                    ? "bg-foreground text-card"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Save to your account (coming soon)"
+              >
+                <Cloud size={11} />
+                <span>Cloud</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStorageMode("local")}
+                className={`flex items-center gap-1 px-2 py-1 transition-colors ${
+                  storageMode === "local"
+                    ? "bg-foreground text-card"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Keep on this device — download as .verdictu file"
+              >
+                <HardDrive size={11} />
+                <span>Local</span>
+              </button>
+            </div>
 
             {/* Citations toggle */}
             <button
