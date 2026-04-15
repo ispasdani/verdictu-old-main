@@ -14,7 +14,7 @@
 // docs/ghost-api-billing-plan.md for the exact integration order.
 
 import { NextRequest } from "next/server";
-import { ghostModePrompt, ghostFollowUpPrompt } from "@/lib/ai/prompts";
+import { ghostModePrompt, ghostFollowUpPrompt, alignmentCheckPrompt } from "@/lib/ai/prompts";
 import { search } from "@/lib/search/tavily";
 import { streamOpenRouter, findGhostApiModel, DEFAULT_GHOST_API_MODEL } from "@/lib/ghost/openrouter";
 import type { GhostAgentSource } from "@/lib/ghost/agent";
@@ -203,10 +203,57 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        // ── Phase 2.5: Alignment Check ─────────────────────────────────────
+        emit({ step: "aligning" });
+
+        let correctionNote = "";
+        try {
+          const alignmentUserMessage =
+            `ORIGINAL QUESTION: ${message}\n\n` +
+            `IDENTIFIED LEGAL DOMAIN: ${domain}\n` +
+            `JURISDICTION: ${jurisdiction}\n` +
+            `SEARCH QUERIES USED:\n${
+              searchQueries.length > 0
+                ? searchQueries.map((q: string) => `• ${q}`).join("\n")
+                : "(no search performed)"
+            }`;
+
+          let alignText = "";
+          await streamOpenRouter({
+            messages: [
+              { role: "system", content: alignmentCheckPrompt() },
+              { role: "user", content: alignmentUserMessage },
+            ],
+            model: model.id,
+            onToken: (t) => { alignText += t; },
+            onDone: () => {},
+            signal: req.signal,
+          });
+
+          const alignParsed = extractJSON(alignText);
+          if (alignParsed && alignParsed.aligned === false && typeof alignParsed.correctionNote === "string") {
+            correctionNote = alignParsed.correctionNote;
+          }
+
+          emit({
+            step: "alignment_result",
+            aligned: !alignParsed || alignParsed.aligned !== false,
+            originalIntent: typeof alignParsed?.originalIntent === "string" ? alignParsed.originalIntent : undefined,
+            corrected: !!correctionNote,
+          });
+        } catch {
+          // Non-fatal — proceed without correction
+          emit({ step: "alignment_result", aligned: true, corrected: false });
+        }
+
         // ── Phase 3: Synthesis via OpenRouter ──────────────────────────────
         emit({ step: "synthesizing", model: model.id });
 
         let fullUserMessage = message;
+
+        if (correctionNote) {
+          fullUserMessage = `⚠️ ALIGNMENT CORRECTION: ${correctionNote}\n\n` + fullUserMessage;
+        }
 
         if (attachments.length > 0) {
           fullUserMessage += "\n\n--- ATTACHED DOCUMENTS ---";

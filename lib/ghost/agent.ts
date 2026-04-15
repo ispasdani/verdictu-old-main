@@ -7,7 +7,7 @@
 // — Smart search: detects when web research adds value; skips it when not needed
 
 import type { GhostStreamOptions } from "@/hooks/useGhostLLM";
-import { ghostModePrompt, ghostFollowUpPrompt } from "@/lib/ai/prompts";
+import { ghostModePrompt, ghostFollowUpPrompt, alignmentCheckPrompt } from "@/lib/ai/prompts";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,8 @@ export type GhostAgentEvent =
   | { step: "searching"; query: string; index: number; total: number }
   | { step: "search_results"; query: string; count: number }
   | { step: "sources_ranked"; total: number; engine: string }
+  | { step: "aligning" }
+  | { step: "alignment_result"; aligned: boolean; originalIntent?: string; corrected: boolean }
   | { step: "synthesizing" }
   | { step: "delta"; text: string }
   | { step: "follow_up_generating" }
@@ -224,10 +226,50 @@ export async function runGhostAgent({
       emit({ step: "sources_ranked", total: sources.length, engine: searchEngine });
     }
 
+    // ── Phase 2.5: Alignment Check ───────────────────────────────────────────
+    emit({ step: "aligning" });
+
+    let correctionNote = "";
+    try {
+      const alignmentUserMessage =
+        `ORIGINAL QUESTION: ${message}\n\n` +
+        `IDENTIFIED LEGAL DOMAIN: ${domain}\n` +
+        `JURISDICTION: ${jurisdiction}\n` +
+        `SEARCH QUERIES USED:\n${
+          searchQueries.length > 0
+            ? searchQueries.map((q) => `• ${q}`).join("\n")
+            : "(no search performed)"
+        }`;
+
+      const alignText = await generateFull(generate, [
+        { role: "system", content: alignmentCheckPrompt() },
+        { role: "user", content: alignmentUserMessage },
+      ]);
+
+      const alignParsed = extractJSON(alignText);
+      if (alignParsed && alignParsed.aligned === false && typeof alignParsed.correctionNote === "string") {
+        correctionNote = alignParsed.correctionNote;
+      }
+
+      emit({
+        step: "alignment_result",
+        aligned: !alignParsed || alignParsed.aligned !== false,
+        originalIntent: typeof alignParsed?.originalIntent === "string" ? alignParsed.originalIntent : undefined,
+        corrected: !!correctionNote,
+      });
+    } catch {
+      // Non-fatal — proceed without correction
+      emit({ step: "alignment_result", aligned: true, corrected: false });
+    }
+
     // ── Phase 3: Synthesis — always-on Ghost Mode stance ─────────────────────
     emit({ step: "synthesizing" });
 
     let fullUserMessage = message;
+
+    if (correctionNote) {
+      fullUserMessage = `⚠️ ALIGNMENT CORRECTION: ${correctionNote}\n\n` + fullUserMessage;
+    }
 
     if (attachments.length > 0) {
       fullUserMessage += "\n\n--- ATTACHED DOCUMENTS ---";
