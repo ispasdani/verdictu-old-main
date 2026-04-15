@@ -72,7 +72,14 @@ function validateFile(file: File): string | null {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function AIChatInput() {
+interface AIChatInputProps {
+  /** If provided, called instead of navigating — used for follow-up messages inside an existing chat. */
+  onSend?: (text: string, attachments: AttachmentItem[]) => void;
+  /** Disable the send button externally (e.g. while the agent is running). */
+  disabled?: boolean;
+}
+
+export default function AIChatInput({ onSend, disabled: externalDisabled }: AIChatInputProps = {}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
 
@@ -100,7 +107,7 @@ export default function AIChatInput() {
     [attachments],
   );
   const hasJurisdiction = jurisdiction !== "";
-  const canSend = !hasAnyUploading && hasJurisdiction;
+  const canSend = !hasAnyUploading && hasJurisdiction && !externalDisabled;
 
   // ── File handling ───────────────────────────────────────────────────────────
 
@@ -215,8 +222,14 @@ export default function AIChatInput() {
 
   const handleSend = () => {
     if (!canSend) return;
-    const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    router.push(`/chat/${id}`);
+    if (onSend) {
+      const currentAttachments = attachments;
+      setText("");
+      onSend(text, currentAttachments);
+    } else {
+      const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      router.push(`/chat/${id}`);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

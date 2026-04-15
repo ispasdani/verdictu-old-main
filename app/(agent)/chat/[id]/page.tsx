@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useChatComposerStore } from "@/store/chatComposerStore";
+import { useChatComposerStore, type AttachmentItem } from "@/store/chatComposerStore";
 import {
   CheckCircle2,
   ChevronDown,
@@ -54,6 +54,25 @@ const SPINNER_VERBS = [
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
+
+interface ConvMsg {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface CompletedTurn {
+  userText: string;
+  userAttachments: { name: string; extractedText: string }[];
+  userJurisdiction: string;
+  userMode: string;
+  assistantText: string;
+  sources: Source[];
+  laws: LawItem[];
+  elapsedMs: number;
+  isGhost: boolean;
+  isGhostOpen: boolean;
+  ghostModelName?: string;
+}
 
 interface LawItem {
   name: string;
@@ -580,7 +599,7 @@ function buildGhostOpenSteps(): AgentStep[] {
 
 export default function ChatPage() {
   const text = useChatComposerStore((s) => s.text);
-  const mode = useChatComposerStore((s) => s.mode);
+  const mode = (useChatComposerStore((s) => s as Record<string, unknown>).mode as string | undefined) ?? "General";
   const jurisdiction = useChatComposerStore((s) => s.jurisdiction);
   const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
   const attachments = useChatComposerStore((s) => s.attachments);
@@ -602,6 +621,21 @@ export default function ChatPage() {
   const ghostOpenModel = findGhostApiModel(ghostOpenModelId);
 
   const jLabel = jurisdictionLabel(jurisdiction);
+
+  // ── Multi-turn conversation state ─────────────────────────────────────────
+  // Completed turns rendered above the current in-progress turn
+  const [completedTurns, setCompletedTurns] = useState<CompletedTurn[]>([]);
+  // Refs hold the *current* run parameters — updated by handleFollowUp before
+  // incrementing runTrigger, so the next effect fires with fresh values.
+  const currentTextRef = useRef(text);
+  const currentAttachmentsRef = useRef(attachments);
+  const historyRef = useRef<ConvMsg[]>([]);
+  // Displayed text/jurisdiction/mode for the *current* user bubble
+  const [currentDisplayText, setCurrentDisplayText] = useState(text);
+  const [currentDisplayJurisdiction, setCurrentDisplayJurisdiction] = useState(jurisdiction);
+  const [currentDisplayMode, setCurrentDisplayMode] = useState(mode);
+  // Increment to re-trigger the agent effect for follow-ups
+  const [runTrigger, setRunTrigger] = useState(0);
 
   // Agent state
   const [steps, setSteps] = useState<AgentStep[]>(() => {
@@ -729,11 +763,11 @@ export default function ChatPage() {
 
       // ── Phase 2: Agent pipeline (intent detection → optional search → synthesis → follow-ups) ─
       await runGhostAgent({
-        message: text,
+        message: currentTextRef.current,
         jurisdiction: jurisdiction.toUpperCase(),
-        mode,
+        mode: mode as "General" | "Compare" | "Draft",
         citationEnabled,
-        attachments: attachments
+        attachments: currentAttachmentsRef.current
           .filter((a) => a.status === "done" && a.extractedText)
           .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
         baseUrl: window.location.origin,
@@ -928,11 +962,11 @@ export default function ChatPage() {
 
       try {
         const body = {
-          message: text,
+          message: currentTextRef.current,
           jurisdiction: jurisdiction.toUpperCase(),
           mode,
           citationEnabled,
-          attachments: attachments
+          attachments: currentAttachmentsRef.current
             .filter((a) => a.status === "done" && a.extractedText)
             .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
           modelId: ghostOpenModelId,
@@ -1124,7 +1158,7 @@ export default function ChatPage() {
   // ── SSE / Ghost dispatch ─────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!text.trim()) return;
+    if (!currentTextRef.current.trim()) return;
 
     startTimeRef.current = Date.now();
     setIsRunning(true);
@@ -1168,13 +1202,14 @@ export default function ChatPage() {
 
       try {
         const body = {
-          message: text,
+          message: currentTextRef.current,
           jurisdiction: jurisdiction.toUpperCase(),
           mode,
           citationEnabled,
-          attachments: attachments
+          attachments: currentAttachmentsRef.current
             .filter((a) => a.status === "done" && a.extractedText)
             .map((a) => ({ filename: a.name, text: a.extractedText! })),
+          conversationHistory: historyRef.current,
         };
 
         const res = await fetch("/api/agent", {
@@ -1232,7 +1267,7 @@ export default function ChatPage() {
       abortControllerRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [runTrigger]);
 
   // ── Event dispatcher ────────────────────────────────────────────────────────
 
@@ -1424,6 +1459,86 @@ export default function ChatPage() {
 
   const completedCount = steps.filter((s) => s.status === "completed").length;
 
+  // ── Follow-up handler ────────────────────────────────────────────────────────
+  // Called by the bottom AIChatInput instead of navigating to a new page.
+  const handleFollowUp = useCallback(
+    (newText: string, newAttachments: AttachmentItem[]) => {
+      // Save the just-completed turn for display
+      const finalAnswer = answerRef.current;
+      if (finalAnswer.trim()) {
+        setCompletedTurns((prev) => [
+          ...prev,
+          {
+            userText: currentTextRef.current,
+            userAttachments: currentAttachmentsRef.current
+              .filter((a) => a.status === "done" && a.extractedText)
+              .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
+            userJurisdiction: currentDisplayJurisdiction,
+            userMode: currentDisplayMode,
+            assistantText: finalAnswer,
+            sources,
+            laws,
+            elapsedMs,
+            isGhost: ghostEnabled,
+            isGhostOpen: ghostOpenEnabled,
+            ghostModelName: ghostEnabled
+              ? (ghostModel?.name ?? undefined)
+              : ghostOpenEnabled
+                ? (ghostOpenModel?.name ?? undefined)
+                : undefined,
+          } satisfies CompletedTurn,
+        ]);
+
+        // Extend conversation history so the API sees prior turns
+        historyRef.current = [
+          ...historyRef.current,
+          { role: "user", content: currentTextRef.current },
+          { role: "assistant", content: finalAnswer },
+        ];
+      }
+
+      // Point refs at the new turn's data
+      currentTextRef.current = newText;
+      currentAttachmentsRef.current = newAttachments;
+
+      // Update display state for the new current user bubble
+      setCurrentDisplayText(newText);
+      setCurrentDisplayJurisdiction(jurisdiction);
+      setCurrentDisplayMode(mode);
+
+      // Reset in-progress agent state for the new turn
+      answerRef.current = "";
+      setAnswerText("");
+      setSteps(
+        ghostEnabled
+          ? buildGhostSteps()
+          : ghostOpenEnabled
+            ? buildGhostOpenSteps()
+            : buildInitialSteps(),
+      );
+      setExpandedIds(new Set());
+      setIsDone(false);
+      setIsRunning(false);
+      setError(null);
+      setSources([]);
+      setLaws([]);
+      setFollowUpQuestions([]);
+      setElapsedMs(0);
+      setStatusMsg("Starting…");
+
+      // Trigger the agent effect to fire again
+      setRunTrigger((n) => n + 1);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      sources, laws, elapsedMs,
+      ghostEnabled, ghostOpenEnabled,
+      ghostModel, ghostOpenModel,
+      currentDisplayJurisdiction, currentDisplayMode,
+      jurisdiction, mode,
+    ],
+  );
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -1435,16 +1550,110 @@ export default function ChatPage() {
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto pt-12">
         <div className="max-w-5xl mx-auto px-4 pb-8 space-y-3">
-          {/* ── User question ── */}
+
+          {/* ── Completed prior turns ── */}
+          {completedTurns.map((turn, turnIdx) => (
+            <React.Fragment key={turnIdx}>
+              {/* User bubble */}
+              <div className="bg-secondary/50 rounded-lg border border-border p-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-full bg-foreground/5 border border-border flex items-center justify-center shrink-0 text-foreground/50 text-xs font-bold mt-0.5">
+                    U
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-foreground text-[15px] leading-relaxed">{turn.userText}</p>
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
+                        <Globe size={9} />
+                        {jurisdictionLabel(turn.userJurisdiction)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
+                        {turn.userMode} mode
+                      </span>
+                      {turn.isGhost ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-foreground border border-foreground/20 text-xs text-card">
+                          <Ghost size={9} />
+                          Ghost{turn.ghostModelName ? ` · ${turn.ghostModelName}` : ""}
+                        </span>
+                      ) : turn.isGhostOpen ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                          <Ghost size={9} />
+                          Ghost Open{turn.ghostModelName ? ` · ${turn.ghostModelName}` : ""}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-xs text-indigo-600">
+                          <Search size={9} />
+                          Deep Search
+                        </span>
+                      )}
+                      {turn.userAttachments.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
+                          <FileText size={9} />
+                          {turn.userAttachments.length} attachment{turn.userAttachments.length !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Assistant answer */}
+              <div className="bg-card rounded-lg border border-border overflow-hidden">
+                <div className="px-5 py-3 border-b border-border flex items-center gap-2.5 bg-secondary/40">
+                  <div className="w-5 h-5 rounded-full bg-foreground/5 border border-border flex items-center justify-center shrink-0">
+                    <Gavel size={10} className="text-foreground/50" />
+                  </div>
+                  <span className="text-sm font-medium text-foreground">
+                    {turn.isGhost ? "Response" : "Legal Analysis"}
+                  </span>
+                  <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">
+                    {(turn.elapsedMs / 1000).toFixed(1)}s
+                  </span>
+                </div>
+                <div className="px-5 py-5">
+                  {renderMarkdown(turn.assistantText)}
+                </div>
+              </div>
+
+              {/* Sources for this turn */}
+              {turn.sources.length > 0 && (
+                <div className="bg-card rounded-lg border border-border overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                    <BookOpen size={12} className="text-muted-foreground/60" />
+                    <span className="text-sm font-medium text-foreground">Sources</span>
+                    <span className="text-xs text-muted-foreground/50 ml-auto">{turn.sources.length} retrieved</span>
+                  </div>
+                  <div className="px-4 py-3 space-y-1.5">
+                    {turn.sources.map((s, i) => (
+                      <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 py-1.5 rounded px-1.5 -mx-1.5 hover:bg-secondary/50 group">
+                        <span className="text-[10px] w-4 shrink-0 tabular-nums font-medium text-muted-foreground/40">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs truncate text-foreground/75 group-hover:text-foreground">{s.title}</div>
+                          {s.domain && <div className="text-[10px] text-muted-foreground/50">{s.domain}</div>}
+                        </div>
+                        <ExternalLink size={10} className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/60" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Divider between turns */}
+              <div className="border-t border-dashed border-border/50 my-1" />
+            </React.Fragment>
+          ))}
+
+          {/* ── Current turn: user question ── */}
           <div className="bg-secondary/50 rounded-lg border border-border p-5">
             <div className="flex items-start gap-3">
               <div className="w-7 h-7 rounded-full bg-foreground/5 border border-border flex items-center justify-center shrink-0 text-foreground/50 text-xs font-bold mt-0.5">
                 U
               </div>
               <div className="flex-1 min-w-0">
-                {text ? (
+                {currentDisplayText ? (
                   <p className="text-foreground text-[15px] leading-relaxed">
-                    {text}
+                    {currentDisplayText}
                   </p>
                 ) : (
                   <p className="text-muted-foreground italic text-sm">
@@ -1454,10 +1663,10 @@ export default function ChatPage() {
                 <div className="flex flex-wrap gap-1.5 mt-3">
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
                     <Globe size={9} />
-                    {jLabel}
+                    {jurisdictionLabel(currentDisplayJurisdiction)}
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
-                    {mode} mode
+                    {currentDisplayMode} mode
                   </span>
                   {ghostEnabled ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-foreground border border-foreground/20 text-xs text-card">
@@ -1475,11 +1684,11 @@ export default function ChatPage() {
                       Deep Search
                     </span>
                   )}
-                  {attachments.length > 0 && (
+                  {currentAttachmentsRef.current.length > 0 && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
                       <FileText size={9} />
-                      {attachments.length} attachment
-                      {attachments.length !== 1 ? "s" : ""}
+                      {currentAttachmentsRef.current.length} attachment
+                      {currentAttachmentsRef.current.length !== 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
@@ -1782,8 +1991,8 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Sticky chat input */}
-      <AIChatInput />
+      {/* Sticky chat input — follow-ups stay on this page */}
+      <AIChatInput onSend={handleFollowUp} disabled={isRunning} />
     </div>
   );
 }

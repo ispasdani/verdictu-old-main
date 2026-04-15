@@ -42,6 +42,7 @@ export interface AgentRequestBody {
   citationEnabled?: boolean;
   provider?: AIProvider;
   model?: string;
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 interface LawItem {
@@ -73,6 +74,7 @@ async function* streamSynthesis(
   model: string,
   systemPrompt: string,
   userMessage: string,
+  history: Array<{ role: "user" | "assistant"; content: string }> = [],
 ): AsyncIterable<string> {
   if (provider === "anthropic") {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -80,7 +82,13 @@ async function* streamSynthesis(
       model,
       max_tokens: 4000,
       system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        ...history.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        { role: "user" as const, content: userMessage },
+      ],
     });
     for await (const event of stream) {
       if (
@@ -91,13 +99,17 @@ async function* streamSynthesis(
       }
     }
   } else if (provider === "gemini") {
+    // Gemini: prepend history as context prefix (no native multi-turn in this SDK call)
+    const historyPrefix = history.length > 0
+      ? history.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n\n") + "\n\n"
+      : "";
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const genModel = genAI.getGenerativeModel({
       model,
       systemInstruction: systemPrompt,
       generationConfig: { maxOutputTokens: 4000 },
     });
-    const result = await genModel.generateContentStream(userMessage);
+    const result = await genModel.generateContentStream(historyPrefix + userMessage);
     for await (const chunk of result.stream) {
       const text = chunk.text();
       if (text) yield text;
@@ -111,7 +123,11 @@ async function* streamSynthesis(
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
+        ...history.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        { role: "user" as const, content: userMessage },
       ],
     });
     for await (const chunk of stream) {
@@ -133,6 +149,7 @@ export async function POST(req: NextRequest) {
     citationEnabled = true,
     provider = DEFAULT_PROVIDER,
     model: requestedModel,
+    conversationHistory = [],
   } = body;
 
   if (!message?.trim()) {
@@ -343,6 +360,7 @@ export async function POST(req: NextRequest) {
           model,
           synthesisPrompt(jurisdiction, mode, citationEnabled),
           fullUserMessage,
+          conversationHistory,
         )) {
           fullAnswer += token;
           emit({ step: "delta", data: { text: token } });
