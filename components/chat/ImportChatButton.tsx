@@ -32,7 +32,7 @@ export function ImportChatButton() {
   };
 
   return (
-    <label className="flex items-center gap-2 w-full cursor-pointer px-2 py-1.5 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+    <label className="flex items-center gap-2 w-full cursor-pointer py-1.5 rounded-md hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
       <Upload size={15} className="shrink-0" />
       <span className="text-sm">Import chat</span>
       <input

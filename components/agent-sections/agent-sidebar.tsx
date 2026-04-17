@@ -35,9 +35,19 @@ import { cn } from "@/lib/utils";
 
 const FEATURES = [
   { id: "chat", label: "AI Chat", icon: MessageSquare, href: "/chat/new" },
-  { id: "contracts", label: "Contract Review", icon: FileText, href: "/contracts" },
+  {
+    id: "contracts",
+    label: "Contract Review",
+    icon: FileText,
+    href: "/contracts",
+  },
   { id: "research", label: "Case Research", icon: Search, href: "/research" },
-  { id: "documents", label: "Document Analysis", icon: FileSearch, href: "/documents" },
+  {
+    id: "documents",
+    label: "Document Analysis",
+    icon: FileSearch,
+    href: "/documents",
+  },
   { id: "summary", label: "Legal Summary", icon: AlignLeft, href: "/summary" },
   { id: "rulings", label: "Case Rulings", icon: Gavel, href: "/rulings" },
 ];
@@ -59,10 +69,10 @@ export function AgentSidebar() {
   return (
     <Sidebar>
       {/* ── Header: logo + new chat ── */}
-      <SidebarHeader className="px-3 py-4 border-b border-sidebar-border">
-        <div className="flex items-center justify-between">
+      <SidebarHeader className="h-12 mt-3 flex items-center justify-center">
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
               <img
                 src="/icons/verdictu-black.svg"
                 alt=""
@@ -72,16 +82,16 @@ export function AgentSidebar() {
                 }}
               />
             </div>
-            <span className="text-sm font-semibold text-sidebar-foreground tracking-tight">
+            <span className="text-sm font-semibold text-[#565450] tracking-tight">
               Verdictu
             </span>
           </div>
           <Link
             href="/chat/new"
-            className="flex items-center justify-center w-6 h-6 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground/50 hover:text-sidebar-foreground"
+            className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground/50 hover:text-sidebar-foreground"
             title="New chat"
           >
-            <SquarePen size={14} />
+            <SquarePen size={16} />
           </Link>
         </div>
       </SidebarHeader>
@@ -100,7 +110,7 @@ export function AgentSidebar() {
 
         {/* ── Features ── */}
         <SidebarGroup className="pt-2">
-          <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30 px-3 mb-1">
+          <SidebarGroupLabel className=" font-semibold uppercase tracking-widest text-sidebar-foreground">
             Tools
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -133,7 +143,7 @@ export function AgentSidebar() {
 
         {/* ── History ── */}
         <SidebarGroup className="pt-2">
-          <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30 px-3 mb-1">
+          <SidebarGroupLabel className="font-semibold uppercase tracking-widest text-sidebar-foreground ">
             Recent
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -195,7 +205,10 @@ export function AgentSidebar() {
                   john@acmelaw.com
                 </span>
               </div>
-              <Settings size={13} className="ml-auto shrink-0 text-sidebar-foreground/30" />
+              <Settings
+                size={13}
+                className="ml-auto shrink-0 text-sidebar-foreground/30"
+              />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

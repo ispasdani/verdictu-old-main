@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useChatComposerStore, type AttachmentItem } from "@/store/chatComposerStore";
+import {
+  useChatComposerStore,
+  type AttachmentItem,
+} from "@/store/chatComposerStore";
 import {
   CheckCircle2,
   ChevronDown,
@@ -605,7 +608,10 @@ function buildGhostOpenSteps(): AgentStep[] {
 
 export default function ChatPage() {
   const text = useChatComposerStore((s) => s.text);
-  const mode = (useChatComposerStore((s) => s as Record<string, unknown>).mode as string | undefined) ?? "General";
+  const mode =
+    (useChatComposerStore((s) => s as Record<string, unknown>).mode as
+      | string
+      | undefined) ?? "General";
   const jurisdiction = useChatComposerStore((s) => s.jurisdiction);
   const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
   const attachments = useChatComposerStore((s) => s.attachments);
@@ -643,12 +649,15 @@ export default function ChatPage() {
   const historyRef = useRef<ConvMsg[]>([]);
   // Displayed text/jurisdiction/mode for the *current* user bubble
   const [currentDisplayText, setCurrentDisplayText] = useState(text);
-  const [currentDisplayJurisdiction, setCurrentDisplayJurisdiction] = useState(jurisdiction);
+  const [currentDisplayJurisdiction, setCurrentDisplayJurisdiction] =
+    useState(jurisdiction);
   const [currentDisplayMode, setCurrentDisplayMode] = useState(mode);
   // Increment to re-trigger the agent effect for follow-ups
   const [runTrigger, setRunTrigger] = useState(0);
   // Checked synchronously so the agent useEffect can skip its first run for imports
-  const skipInitialRunRef = useRef(!!useImportedChatStore.getState().pendingImport);
+  const skipInitialRunRef = useRef(
+    !!useImportedChatStore.getState().pendingImport,
+  );
 
   // Agent state
   const [steps, setSteps] = useState<AgentStep[]>(() => {
@@ -1598,11 +1607,17 @@ export default function ChatPage() {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      sources, laws, elapsedMs,
-      ghostEnabled, ghostOpenEnabled,
-      ghostModel, ghostOpenModel,
-      currentDisplayJurisdiction, currentDisplayMode,
-      jurisdiction, mode,
+      sources,
+      laws,
+      elapsedMs,
+      ghostEnabled,
+      ghostOpenEnabled,
+      ghostModel,
+      ghostOpenModel,
+      currentDisplayJurisdiction,
+      currentDisplayMode,
+      jurisdiction,
+      mode,
     ],
   );
 
@@ -1637,17 +1652,26 @@ export default function ChatPage() {
       citationEnabled,
     });
   }, [
-    completedTurns, isDone, sources, laws, elapsedMs,
-    currentDisplayJurisdiction, currentDisplayMode, citationEnabled,
-    ghostEnabled, ghostOpenEnabled, ghostModel, ghostOpenModel,
+    completedTurns,
+    isDone,
+    sources,
+    laws,
+    elapsedMs,
+    currentDisplayJurisdiction,
+    currentDisplayMode,
+    citationEnabled,
+    ghostEnabled,
+    ghostOpenEnabled,
+    ghostModel,
+    ghostOpenModel,
   ]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[98vh] w-[98.5%] pb-10 relative bg-card rounded-lg border border-border shadow-sm">
+    <div className="flex flex-col h-[98vh] w-[98.5%] pb-10 relative bg-card rounded-lg border border-border">
       {/* ── Top bar: sidebar trigger + storage mode + export ── */}
-      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 h-12 border-b border-border/50">
+      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 h-12">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 
         {/* Storage mode indicator + download button */}
@@ -1661,9 +1685,13 @@ export default function ChatPage() {
             }`}
           >
             {storageMode === "local" ? (
-              <><HardDriveIcon size={10} /> Local only</>
+              <>
+                <HardDriveIcon size={10} /> Local only
+              </>
             ) : (
-              <><CloudIcon size={10} /> Cloud (soon)</>
+              <>
+                <CloudIcon size={10} /> Cloud (soon)
+              </>
             )}
           </span>
 
@@ -1683,9 +1711,15 @@ export default function ChatPage() {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto pt-12" style={{ backgroundImage: "radial-gradient(circle, #00000015 1px, transparent 1px)", backgroundSize: "20px 20px" }}>
+      <div
+        className="flex-1 overflow-y-auto pt-12"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle, #00000015 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
+        }}
+      >
         <div className="max-w-5xl mx-auto px-4 pb-8 space-y-3">
-
           {/* ── Completed prior turns ── */}
           {completedTurns.map((turn, turnIdx) => (
             <React.Fragment key={turnIdx}>
@@ -1696,7 +1730,9 @@ export default function ChatPage() {
                     U
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-foreground text-[15px] leading-relaxed">{turn.userText}</p>
+                    <p className="text-foreground text-[15px] leading-relaxed">
+                      {turn.userText}
+                    </p>
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
                         <Globe size={9} />
@@ -1708,12 +1744,18 @@ export default function ChatPage() {
                       {turn.isGhost ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-foreground border border-foreground/20 text-xs text-card">
                           <Ghost size={9} />
-                          Ghost{turn.ghostModelName ? ` · ${turn.ghostModelName}` : ""}
+                          Ghost
+                          {turn.ghostModelName
+                            ? ` · ${turn.ghostModelName}`
+                            : ""}
                         </span>
                       ) : turn.isGhostOpen ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-700">
                           <Ghost size={9} />
-                          Ghost Open{turn.ghostModelName ? ` · ${turn.ghostModelName}` : ""}
+                          Ghost Open
+                          {turn.ghostModelName
+                            ? ` · ${turn.ghostModelName}`
+                            : ""}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-xs text-indigo-600">
@@ -1724,7 +1766,8 @@ export default function ChatPage() {
                       {turn.userAttachments.length > 0 && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
                           <FileText size={9} />
-                          {turn.userAttachments.length} attachment{turn.userAttachments.length !== 1 ? "s" : ""}
+                          {turn.userAttachments.length} attachment
+                          {turn.userAttachments.length !== 1 ? "s" : ""}
                         </span>
                       )}
                     </div>
@@ -1755,19 +1798,39 @@ export default function ChatPage() {
                 <div className="bg-card rounded-lg border border-border overflow-hidden">
                   <div className="px-4 py-3 border-b border-border flex items-center gap-2">
                     <BookOpen size={12} className="text-muted-foreground/60" />
-                    <span className="text-sm font-medium text-foreground">Sources</span>
-                    <span className="text-xs text-muted-foreground/50 ml-auto">{turn.sources.length} retrieved</span>
+                    <span className="text-sm font-medium text-foreground">
+                      Sources
+                    </span>
+                    <span className="text-xs text-muted-foreground/50 ml-auto">
+                      {turn.sources.length} retrieved
+                    </span>
                   </div>
                   <div className="px-4 py-3 space-y-1.5">
                     {turn.sources.map((s, i) => (
-                      <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 py-1.5 rounded px-1.5 -mx-1.5 hover:bg-secondary/50 group">
-                        <span className="text-[10px] w-4 shrink-0 tabular-nums font-medium text-muted-foreground/40">{i + 1}</span>
+                      <a
+                        key={i}
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 py-1.5 rounded px-1.5 -mx-1.5 hover:bg-secondary/50 group"
+                      >
+                        <span className="text-[10px] w-4 shrink-0 tabular-nums font-medium text-muted-foreground/40">
+                          {i + 1}
+                        </span>
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs truncate text-foreground/75 group-hover:text-foreground">{s.title}</div>
-                          {s.domain && <div className="text-[10px] text-muted-foreground/50">{s.domain}</div>}
+                          <div className="text-xs truncate text-foreground/75 group-hover:text-foreground">
+                            {s.title}
+                          </div>
+                          {s.domain && (
+                            <div className="text-[10px] text-muted-foreground/50">
+                              {s.domain}
+                            </div>
+                          )}
                         </div>
-                        <ExternalLink size={10} className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/60" />
+                        <ExternalLink
+                          size={10}
+                          className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/60"
+                        />
                       </a>
                     ))}
                   </div>
