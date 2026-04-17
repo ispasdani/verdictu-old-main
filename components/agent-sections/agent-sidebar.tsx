@@ -110,7 +110,7 @@ export function AgentSidebar() {
 
         {/* ── Features ── */}
         <SidebarGroup className="pt-2">
-          <SidebarGroupLabel className=" font-semibold uppercase tracking-widest text-sidebar-foreground">
+          <SidebarGroupLabel className="font-semibold uppercase tracking-widest text-sidebar-foreground">
             Tools
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -143,7 +143,7 @@ export function AgentSidebar() {
 
         {/* ── History ── */}
         <SidebarGroup className="pt-2">
-          <SidebarGroupLabel className="font-semibold uppercase tracking-widest text-sidebar-foreground ">
+          <SidebarGroupLabel className="font-semibold uppercase tracking-widest text-sidebar-foreground">
             Recent
           </SidebarGroupLabel>
           <SidebarGroupContent>
