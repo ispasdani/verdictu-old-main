@@ -1669,7 +1669,14 @@ export default function ChatPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[98vh] w-[98.5%] pb-10 relative bg-card rounded-lg border border-border">
+    <div
+      className="flex flex-col h-[98vh] w-[98.5%] pb-10 relative bg-card rounded-lg border border-border"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle, #00000015 1px, transparent 1px)",
+        backgroundSize: "20px 20px",
+      }}
+    >
       {/* ── Top bar: sidebar trigger + storage mode + export ── */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 h-12">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
@@ -1711,14 +1718,7 @@ export default function ChatPage() {
       </div>
 
       {/* Scrollable content */}
-      <div
-        className="flex-1 overflow-y-auto pt-12"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, #00000015 1px, transparent 1px)",
-          backgroundSize: "20px 20px",
-        }}
-      >
+      <div className="flex-1 overflow-y-auto pt-12">
         <div className="max-w-5xl mx-auto px-4 pb-8 space-y-3">
           {/* ── Completed prior turns ── */}
           {completedTurns.map((turn, turnIdx) => (
