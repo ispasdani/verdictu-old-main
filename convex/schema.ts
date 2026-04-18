@@ -34,20 +34,44 @@ export default defineSchema({
     ), // Chat input mode
     jurisdiction: v.optional(v.string()), // Jurisdiction selected for this chat
     citationEnabled: v.boolean(), // Whether citations were enabled
-    messages: v.array(
+    // Structured turns matching VerdictuTurn — each turn is one user Q + assistant A pair
+    turns: v.array(
       v.object({
-        role: v.union(v.literal("user"), v.literal("assistant")),
-        content: v.string(),
-        timestamp: v.number(),
-        // Attached documents (extracted client-side, no file stored)
-        attachments: v.optional(
-          v.array(
-            v.object({
-              name: v.string(), // Original file name
-              extractedText: v.string(), // Text extracted client-side
-            }),
-          ),
+        userText: v.string(),
+        userAttachments: v.array(
+          v.object({
+            name: v.string(),
+            extractedText: v.string(),
+          }),
         ),
+        userJurisdiction: v.string(),
+        userMode: v.string(),
+        assistantText: v.string(),
+        sources: v.array(
+          v.object({
+            title: v.string(),
+            url: v.string(),
+            domain: v.optional(v.string()),
+          }),
+        ),
+        laws: v.array(
+          v.object({
+            name: v.string(),
+            citation: v.string(),
+            relevance: v.union(
+              v.literal("primary"),
+              v.literal("secondary"),
+              v.literal("supplementary"),
+            ),
+            confidence: v.number(),
+            applies_because: v.string(),
+          }),
+        ),
+        timestamp: v.number(),
+        elapsedMs: v.number(),
+        isGhost: v.optional(v.boolean()),
+        isGhostOpen: v.optional(v.boolean()),
+        ghostModelName: v.optional(v.string()),
       }),
     ),
     createdAt: v.number(),
@@ -287,5 +311,7 @@ export default defineSchema({
     ),
     tags: v.array(v.string()),
     isShared: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
 });
