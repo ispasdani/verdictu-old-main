@@ -80,9 +80,21 @@ interface AIChatInputProps {
   onSend?: (text: string, attachments: AttachmentItem[]) => void;
   /** Disable the send button externally (e.g. while the agent is running). */
   disabled?: boolean;
+  /** Show the jurisdiction selector (default true). */
+  showJurisdiction?: boolean;
+  /** Show the citations toggle (default true). */
+  showCitations?: boolean;
+  /** Base path for new chat navigation, e.g. "/chat/" or "/simple-chat/" (default "/chat/"). */
+  newChatBasePath?: string;
 }
 
-export default function AIChatInput({ onSend, disabled: externalDisabled }: AIChatInputProps = {}) {
+export default function AIChatInput({
+  onSend,
+  disabled: externalDisabled,
+  showJurisdiction = true,
+  showCitations = true,
+  newChatBasePath = "/chat/",
+}: AIChatInputProps = {}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
 
@@ -113,7 +125,7 @@ export default function AIChatInput({ onSend, disabled: externalDisabled }: AICh
     [attachments],
   );
   const hasJurisdiction = jurisdiction !== "";
-  const canSend = !hasAnyUploading && hasJurisdiction && !externalDisabled;
+  const canSend = !hasAnyUploading && (!showJurisdiction || hasJurisdiction) && !externalDisabled;
 
   // ── File handling ───────────────────────────────────────────────────────────
 
@@ -234,7 +246,7 @@ export default function AIChatInput({ onSend, disabled: externalDisabled }: AICh
       onSend(text, currentAttachments);
     } else {
       const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      router.push(`/chat/${id}`);
+      router.push(`${newChatBasePath}${id}`);
     }
   };
 
@@ -441,42 +453,44 @@ export default function AIChatInput({ onSend, disabled: externalDisabled }: AICh
             </button>
 
             {/* Jurisdiction */}
-            <div
-              className={`relative flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md hover:bg-accent bg-transparent transition-colors ${
-                !hasJurisdiction
-                  ? "border-amber-500/60 text-amber-500"
-                  : "border-border"
-              }`}
-            >
-              <Globe
-                size={13}
-                className={!hasJurisdiction ? "text-amber-500 shrink-0" : "text-muted-foreground shrink-0"}
-              />
-              <select
-                value={jurisdiction}
-                onChange={(e) => setJurisdiction(e.target.value)}
-                className={`bg-transparent border-none outline-none text-xs font-medium cursor-pointer appearance-none pr-3 ${
-                  !hasJurisdiction ? "text-amber-500" : "text-muted-foreground"
+            {showJurisdiction && (
+              <div
+                className={`relative flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md hover:bg-accent bg-transparent transition-colors ${
+                  !hasJurisdiction
+                    ? "border-amber-500/60 text-amber-500"
+                    : "border-border"
                 }`}
               >
-                <option value="" disabled className="bg-card text-muted-foreground">
-                  Select jurisdiction
-                </option>
-                {JURISDICTIONS.map((j) => (
-                  <option
-                    key={j.value}
-                    value={j.value}
-                    className="bg-card text-foreground"
-                  >
-                    {j.label}
+                <Globe
+                  size={13}
+                  className={!hasJurisdiction ? "text-amber-500 shrink-0" : "text-muted-foreground shrink-0"}
+                />
+                <select
+                  value={jurisdiction}
+                  onChange={(e) => setJurisdiction(e.target.value)}
+                  className={`bg-transparent border-none outline-none text-xs font-medium cursor-pointer appearance-none pr-3 ${
+                    !hasJurisdiction ? "text-amber-500" : "text-muted-foreground"
+                  }`}
+                >
+                  <option value="" disabled className="bg-card text-muted-foreground">
+                    Select jurisdiction
                   </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={11}
-                className="text-muted-foreground/50 pointer-events-none absolute right-2"
-              />
-            </div>
+                  {JURISDICTIONS.map((j) => (
+                    <option
+                      key={j.value}
+                      value={j.value}
+                      className="bg-card text-foreground"
+                    >
+                      {j.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={11}
+                  className="text-muted-foreground/50 pointer-events-none absolute right-2"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -514,24 +528,26 @@ export default function AIChatInput({ onSend, disabled: externalDisabled }: AICh
             </div>
 
             {/* Citations toggle */}
-            <button
-              type="button"
-              className="flex items-center gap-2"
-              onClick={() => setCitationEnabled(!citationEnabled)}
-            >
-              <div
-                className={`w-8 h-4 rounded-full flex items-center px-0.5 transition-colors ${
-                  citationEnabled ? "bg-foreground" : "bg-border"
-                }`}
+            {showCitations && (
+              <button
+                type="button"
+                className="flex items-center gap-2"
+                onClick={() => setCitationEnabled(!citationEnabled)}
               >
                 <div
-                  className={`bg-white w-3 h-3 rounded-full shadow-sm transition-transform ${
-                    citationEnabled ? "translate-x-4" : "translate-x-0"
+                  className={`w-8 h-4 rounded-full flex items-center px-0.5 transition-colors ${
+                    citationEnabled ? "bg-foreground" : "bg-border"
                   }`}
-                />
-              </div>
-              <span className="text-xs text-muted-foreground">Citations</span>
-            </button>
+                >
+                  <div
+                    className={`bg-white w-3 h-3 rounded-full shadow-sm transition-transform ${
+                      citationEnabled ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">Citations</span>
+              </button>
+            )}
 
             {/* Send */}
             <button
@@ -541,7 +557,7 @@ export default function AIChatInput({ onSend, disabled: externalDisabled }: AICh
               title={
                 hasAnyUploading
                   ? "Please wait for uploads to finish"
-                  : !hasJurisdiction
+                  : showJurisdiction && !hasJurisdiction
                     ? "Select a jurisdiction before sending"
                     : "Send"
               }

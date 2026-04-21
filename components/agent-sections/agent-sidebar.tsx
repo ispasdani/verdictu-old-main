@@ -1,16 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   MessageSquare,
-  FileText,
-  Search,
-  FileSearch,
-  AlignLeft,
-  Gavel,
-  Plus,
+  Scale,
+  Workflow,
   HelpCircle,
   Settings,
   SquarePen,
@@ -34,22 +29,9 @@ import { cn } from "@/lib/utils";
 // ─── Mock data ───────────────────────────────────────────────────────────────
 
 const FEATURES = [
-  { id: "chat", label: "AI Chat", icon: MessageSquare, href: "/chat/new" },
-  {
-    id: "contracts",
-    label: "Contract Review",
-    icon: FileText,
-    href: "/contracts",
-  },
-  { id: "research", label: "Case Research", icon: Search, href: "/research" },
-  {
-    id: "documents",
-    label: "Document Analysis",
-    icon: FileSearch,
-    href: "/documents",
-  },
-  { id: "summary", label: "Legal Summary", icon: AlignLeft, href: "/summary" },
-  { id: "rulings", label: "Case Rulings", icon: Gavel, href: "/rulings" },
+  { id: "chat", label: "Chat", icon: MessageSquare, href: "/simple-chat/new" },
+  { id: "legal", label: "Legal AI Agent", icon: Scale, href: "/chat/new" },
+  { id: "workflows", label: "Workflows", icon: Workflow, href: "/workflows" },
 ];
 
 type Chat = { id: string; title: string };
@@ -87,7 +69,7 @@ export function AgentSidebar() {
             </span>
           </div>
           <Link
-            href="/chat/new"
+            href="/simple-chat/new"
             className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground/50 hover:text-sidebar-foreground"
             title="New chat"
           >
@@ -149,7 +131,9 @@ export function AgentSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {MOCK_CHATS.map((chat) => {
-                const isActive = pathname === `/chat/${chat.id}`;
+                const isActive =
+                  pathname === `/chat/${chat.id}` ||
+                  pathname === `/simple-chat/${chat.id}`;
                 return (
                   <SidebarMenuItem key={chat.id}>
                     <SidebarMenuButton
