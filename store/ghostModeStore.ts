@@ -19,12 +19,15 @@ type GhostModeState = {
   modelStatus: GhostModelStatus;
   loadProgress: string;
   loadPercent: number; // 0–100
+  /** Set when a load fails — ID of a smaller model the user can switch to */
+  suggestedModelId: string | null;
 
   // ── Actions ───────────────────────────────────────────────────────────────
   setEnabled: (v: boolean) => void;
   setSelectedModelId: (id: string) => void;
   setModelStatus: (s: GhostModelStatus) => void;
   setLoadProgress: (text: string, percent?: number) => void;
+  setSuggestedModelId: (id: string | null) => void;
 
   setGhostOpenEnabled: (v: boolean) => void;
   setSelectedApiModelId: (id: string) => void;
@@ -45,6 +48,7 @@ export const useGhostModeStore = create<GhostModeState>()(
       modelStatus: "idle",
       loadProgress: "",
       loadPercent: 0,
+      suggestedModelId: null,
 
       // Enabling Ghost turns off Ghost Open
       setEnabled: (enabled) =>
@@ -56,6 +60,7 @@ export const useGhostModeStore = create<GhostModeState>()(
       setModelStatus: (modelStatus) => set({ modelStatus }),
       setLoadProgress: (loadProgress, loadPercent = 0) =>
         set({ loadProgress, loadPercent }),
+      setSuggestedModelId: (suggestedModelId) => set({ suggestedModelId }),
 
       // Enabling Ghost Open turns off Ghost
       setGhostOpenEnabled: (ghostOpenEnabled) =>

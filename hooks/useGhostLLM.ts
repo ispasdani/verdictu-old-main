@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useGhostModeStore } from "@/store/ghostModeStore";
-import { findGhostModel } from "@/lib/ghost/models";
+import { findGhostModel, getSuggestedSmallerModel } from "@/lib/ghost/models";
+import { installOPFSCacheShim, clearOPFSCache } from "@/lib/ghost/opfsCache";
 
 // WebLLM is dynamically imported to keep it out of the server bundle
 type MLCEngine = {
@@ -32,6 +33,12 @@ async function purgeWebLLMCaches(): Promise<void> {
   await Promise.all(WEBLLM_CACHES.map((name) => caches.delete(name).catch(() => {})));
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)}GB`;
+  if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)}MB`;
+  return `${Math.round(bytes / 1024)}KB`;
+}
+
 // Singleton engine ref shared across all hook instances
 let globalEngine: MLCEngine | null = null;
 let globalEngineModelId: string | null = null;
@@ -55,6 +62,7 @@ export function useGhostLLM() {
   const modelStatus = useGhostModeStore((s) => s.modelStatus);
   const setModelStatus = useGhostModeStore((s) => s.setModelStatus);
   const setLoadProgress = useGhostModeStore((s) => s.setLoadProgress);
+  const setSuggestedModelId = useGhostModeStore((s) => s.setSuggestedModelId);
   const abortRef = useRef<boolean>(false);
 
   // Parse percent from WebLLM progress text like "[2/7] Loading model weights, 47%"
@@ -70,11 +78,9 @@ export function useGhostLLM() {
     }
 
     // If another load is already in progress, wait for it to finish first.
-    // This prevents calling unload() while WebGPU mapAsync operations are pending,
-    // which would produce an AbortError from the unmapped GPU buffer.
+    // This prevents calling unload() while WebGPU mapAsync operations are pending.
     if (globalLoadingPromise) {
       await globalLoadingPromise;
-      // The completed load may already have set up the model we want.
       if (globalEngine && globalEngineModelId === modelId) {
         setModelStatus("ready");
         return;
@@ -83,6 +89,7 @@ export function useGhostLLM() {
 
     setModelStatus("loading");
     setLoadProgress("Initializing…", 0);
+    setSuggestedModelId(null);
 
     let resolveMutex!: () => void;
     globalLoadingPromise = new Promise<void>((r) => { resolveMutex = r; });
@@ -90,9 +97,37 @@ export function useGhostLLM() {
     try {
       const { CreateMLCEngine, hasModelInCache } = await import("@mlc-ai/web-llm");
 
+      // ── Install OPFS cache shim ───────────────────────────────────────────
+      // Redirects WebLLM's Cache API writes to OPFS, where quota = available
+      // disk space. This is the primary fix for the ~1-2GB Cache API limit that
+      // causes mid-download failures on large models. Safe to call on every load;
+      // installs only once per page lifetime.
+      const opfsActive = await installOPFSCacheShim();
+      setLoadProgress(opfsActive ? "Initializing (disk storage)…" : "Initializing…", 0);
+
+      if (!opfsActive) {
+        // OPFS unavailable — fall back to Cache API. Try to raise its quota via
+        // persist(), then abort early if it's still too small for the model.
+        if (typeof navigator.storage?.persist === "function") {
+          await navigator.storage.persist().catch(() => {});
+        }
+        const model = findGhostModel(modelId);
+        if (model && typeof navigator.storage?.estimate === "function") {
+          const { quota = 0, usage = 0 } = await navigator.storage.estimate();
+          const available = quota - usage;
+          const needed = model.downloadSizeMB * 1024 * 1024;
+          if (available > 0 && available < needed) {
+            const smaller = getSuggestedSmallerModel(modelId);
+            setSuggestedModelId(smaller?.id ?? null);
+            throw new Error(
+              `Not enough browser storage for ${model.name}. Need ${model.size}, only ${formatBytes(available)} available.${smaller ? ` Try ${smaller.name} (${smaller.size}) instead.` : ""}`,
+            );
+          }
+        }
+      }
+
+      // ── Handle existing engine state ──────────────────────────────────────
       if (globalEngine) {
-        // Switching to a different model — unload and purge the old model's cache
-        // so stale data doesn't cause Cache.add() to throw "network error".
         if (globalEngineModelId !== modelId) {
           await globalEngine.unload().catch(() => {});
           globalEngine = null;
@@ -100,30 +135,49 @@ export function useGhostLLM() {
           setLoadProgress("Clearing previous model cache…", 0);
           await purgeWebLLMCaches();
         } else {
-          // Same model, engine exists — shouldn't reach here due to early return above
           await globalEngine.unload().catch(() => {});
           globalEngine = null;
           globalEngineModelId = null;
         }
       }
-      // On fresh page load (globalEngine === null): skip purge so cached weights survive.
 
-      // Check if model is already in the browser cache (e.g. from a prior session)
-      const cached = await hasModelInCache(modelId).catch(() => false);
-      if (cached) {
-        setLoadProgress("Loading from cache…", 10);
+      // ── Download with one automatic retry ────────────────────────────────
+      // On failure, wipe all WebLLM caches to reclaim quota, then try once more.
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) {
+          setLoadProgress("Clearing cache and retrying…", 0);
+          await purgeWebLLMCaches();
+        }
+
+        try {
+          const cached = await hasModelInCache(modelId).catch(() => false);
+          if (cached && attempt === 0) {
+            setLoadProgress("Loading from cache…", 10);
+          }
+
+          const engine = await CreateMLCEngine(modelId, {
+            initProgressCallback: (progress: { text: string }) => {
+              const pct = parsePercent(progress.text);
+              setLoadProgress(progress.text, pct);
+            },
+          });
+
+          globalEngine = engine as unknown as MLCEngine;
+          globalEngineModelId = modelId;
+          setModelStatus("ready");
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
       }
 
-      const engine = await CreateMLCEngine(modelId, {
-        initProgressCallback: (progress: { text: string }) => {
-          const pct = parsePercent(progress.text);
-          setLoadProgress(progress.text, pct);
-        },
-      });
-
-      globalEngine = engine as unknown as MLCEngine;
-      globalEngineModelId = modelId;
-      setModelStatus("ready");
+      if (lastErr) {
+        const smaller = getSuggestedSmallerModel(modelId);
+        setSuggestedModelId(smaller?.id ?? null);
+        throw lastErr;
+      }
     } catch (err) {
       setModelStatus("error");
       setLoadProgress(
@@ -134,7 +188,7 @@ export function useGhostLLM() {
       resolveMutex();
       globalLoadingPromise = null;
     }
-  }, [setModelStatus, setLoadProgress]);
+  }, [setModelStatus, setLoadProgress, setSuggestedModelId]);
 
   // Auto-load when ghost mode is enabled
   useEffect(() => {
@@ -185,7 +239,11 @@ export function useGhostLLM() {
       globalEngine = null;
       globalEngineModelId = null;
     }
+    // purgeWebLLMCaches calls caches.delete() — with the OPFS shim installed
+    // this correctly removes OPFS directories. clearOPFSCache is a direct
+    // OPFS wipe as a safety net for the case where the shim wasn't active.
     await purgeWebLLMCaches();
+    await clearOPFSCache();
     setModelStatus("idle");
     setLoadProgress("", 0);
   }, [setModelStatus, setLoadProgress]);

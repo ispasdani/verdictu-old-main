@@ -4,6 +4,8 @@ export type GhostModel = {
   shortName: string;
   provider: string;
   size: string;
+  /** Approximate download size in megabytes — used for storage quota checks */
+  downloadSizeMB: number;
   vram: string;
   description: string;
   tags: string[];
@@ -20,6 +22,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Qwen3 0.6B",
     provider: "Alibaba",
     size: "~400MB",
+    downloadSizeMB: 400,
     vram: "~1GB",
     description: "Smallest Qwen3 with thinking mode. Loads instantly on any device.",
     tags: ["fastest", "tiny"],
@@ -30,6 +33,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Qwen2.5 1.5B",
     provider: "Alibaba",
     size: "~900MB",
+    downloadSizeMB: 900,
     vram: "~1.5GB",
     description: "Proven and reliable. Best fallback for low-end GPUs.",
     tags: ["fast", "balanced"],
@@ -43,6 +47,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Qwen3 1.7B",
     provider: "Alibaba",
     size: "~1GB",
+    downloadSizeMB: 1024,
     vram: "~2GB",
     description: "Best small model for defense work. Thinking mode enabled — reasons step-by-step before answering.",
     tags: ["fast", "reasoning", "recommended", "defense"],
@@ -56,6 +61,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Qwen2.5 3B",
     provider: "Alibaba",
     size: "~2GB",
+    downloadSizeMB: 2048,
     vram: "~3GB",
     description: "Reliable 3B with strong instruction following. Good middle ground.",
     tags: ["balanced", "recommended"],
@@ -66,6 +72,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Qwen3 4B",
     provider: "Alibaba",
     size: "~2.5GB",
+    downloadSizeMB: 2560,
     vram: "~4GB",
     description: "Strongest browser-compatible reasoning model. Thinking mode for deep legal analysis.",
     tags: ["powerful", "reasoning", "defense"],
@@ -76,6 +83,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Gemma 2 2B",
     provider: "Google",
     size: "~1.3GB",
+    downloadSizeMB: 1331,
     vram: "~2.5GB",
     description: "Google's compact model — great quality for its size.",
     tags: ["balanced"],
@@ -87,6 +95,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Phi 3.5 Mini",
     provider: "Microsoft",
     size: "~2.2GB",
+    downloadSizeMB: 2253,
     vram: "~4GB",
     description: "Strong reasoning & summarization from Microsoft.",
     tags: ["reasoning"],
@@ -101,6 +110,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "DeepSeek R1 7B",
     provider: "DeepSeek",
     size: "~4.5GB",
+    downloadSizeMB: 4608,
     vram: "~1.9GB",
     description: "Chain-of-thought reasoning distilled from R1. Surprisingly efficient on VRAM.",
     tags: ["reasoning", "powerful"],
@@ -111,6 +121,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Qwen2.5 7B",
     provider: "Alibaba",
     size: "~4.5GB",
+    downloadSizeMB: 4608,
     vram: "~2.9GB",
     description: "Highly capable 7B with excellent instruction following.",
     tags: ["powerful"],
@@ -121,6 +132,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Qwen3 8B",
     provider: "Alibaba",
     size: "~5GB",
+    downloadSizeMB: 5120,
     vram: "~4.3GB",
     description: "Latest Qwen3 8B with thinking mode. Strongest local model overall.",
     tags: ["powerful"],
@@ -131,6 +143,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Llama3.1 8B",
     provider: "Meta",
     size: "~4.9GB",
+    downloadSizeMB: 5018,
     vram: "~4.6GB",
     description: "Meta's flagship 8B instruction model. Versatile and well-rounded.",
     tags: ["powerful"],
@@ -141,6 +154,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "R1 Llama 8B",
     provider: "DeepSeek",
     size: "~5.5GB",
+    downloadSizeMB: 5632,
     vram: "~5.9GB",
     description: "R1 reasoning distilled into Llama 8B. Best defense reasoning for users with a dedicated GPU.",
     tags: ["reasoning", "powerful", "defense"],
@@ -151,6 +165,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "Mistral 7B",
     provider: "Mistral AI",
     size: "~4.6GB",
+    downloadSizeMB: 4710,
     vram: "~4.6GB",
     description: "Popular open-weight 7B. Great general-purpose performance.",
     tags: ["powerful"],
@@ -164,6 +179,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "SmolLM2 360M",
     provider: "HuggingFace",
     size: "~200MB",
+    downloadSizeMB: 200,
     vram: "~512MB",
     description: "Fastest possible. Tiny model for simple Q&A.",
     tags: ["fastest", "tiny"],
@@ -175,6 +191,7 @@ export const GHOST_MODELS: GhostModel[] = [
     shortName: "SmolLM2 1.7B",
     provider: "HuggingFace",
     size: "~1GB",
+    downloadSizeMB: 1024,
     vram: "~2GB",
     description: "Solid step up from 360M with better reasoning.",
     tags: ["fast"],
@@ -189,4 +206,16 @@ export const DEFAULT_GHOST_MODEL = GHOST_MODELS.find(
 
 export function findGhostModel(id: string): GhostModel | undefined {
   return GHOST_MODELS.find((m) => m.id === id);
+}
+
+/**
+ * Returns the best (largest) model smaller than the given one that doesn't
+ * require shader-f16. Used to suggest a fallback when storage is insufficient.
+ */
+export function getSuggestedSmallerModel(id: string): GhostModel | undefined {
+  const current = findGhostModel(id);
+  if (!current) return undefined;
+  return GHOST_MODELS.filter(
+    (m) => m.id !== id && !m.requiresShaderF16 && m.downloadSizeMB < current.downloadSizeMB,
+  ).sort((a, b) => b.downloadSizeMB - a.downloadSizeMB)[0];
 }

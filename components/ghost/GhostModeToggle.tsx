@@ -14,6 +14,7 @@ import {
   ShieldOff,
 } from "lucide-react";
 import { useGhostModeStore } from "@/store/ghostModeStore";
+import { useGhostLLM } from "@/hooks/useGhostLLM";
 import { GHOST_MODELS, findGhostModel } from "@/lib/ghost/models";
 import {
   GHOST_API_MODELS,
@@ -40,32 +41,67 @@ function StatusDot() {
 
 // ─── Local model loading / error bar ────────────────────────────────────────
 
-function GhostLoadingBar() {
+function GhostLoadingBar({
+  onRetry,
+  onSwitchModel,
+}: {
+  onRetry?: () => void;
+  onSwitchModel?: (id: string) => void;
+}) {
   const modelStatus = useGhostModeStore((s) => s.modelStatus);
   const loadProgress = useGhostModeStore((s) => s.loadProgress);
   const loadPercent = useGhostModeStore((s) => s.loadPercent);
   const enabled = useGhostModeStore((s) => s.enabled);
+  const suggestedModelId = useGhostModeStore((s) => s.suggestedModelId);
 
   if (!enabled || modelStatus === "idle" || modelStatus === "ready") return null;
 
   if (modelStatus === "error") {
     const isShaderF16 =
       loadProgress.toLowerCase().includes("shader-f16") ||
-      loadProgress.toLowerCase().includes("required_features") ||
-      loadProgress.toLowerCase().includes("failed to fetch");
+      loadProgress.toLowerCase().includes("required_features");
+    const isStorageError = loadProgress.toLowerCase().includes("not enough browser storage");
+    const suggestedModel = suggestedModelId ? findGhostModel(suggestedModelId) : null;
+
     return (
       <div className="space-y-1.5 px-0.5">
         <div className="flex items-start gap-2 px-2.5 py-2 rounded-md bg-red-50 border border-red-100 text-xs text-red-600">
           <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-          <div className="space-y-1">
+          <div className="space-y-1.5 flex-1 min-w-0">
             <span className="font-medium leading-snug block">
-              {isShaderF16 ? "GPU does not support shader-f16" : "Model failed to load"}
+              {isShaderF16
+                ? "GPU does not support shader-f16"
+                : isStorageError
+                  ? "Not enough browser storage"
+                  : "Model failed to load"}
             </span>
             <span className="text-red-500/80 leading-snug block">
               {isShaderF16
                 ? "This model requires the WebGPU shader-f16 extension. Switch to Qwen 2.5 1.5B or Qwen 3 4B."
-                : loadProgress || "WebGPU required (Chrome/Edge 113+). Check your internet connection and try again."}
+                : isStorageError
+                  ? loadProgress
+                  : loadProgress || "WebGPU required (Chrome/Edge 113+). Check your internet connection and try again."}
             </span>
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {suggestedModel && onSwitchModel && (
+                <button
+                  type="button"
+                  onClick={() => onSwitchModel(suggestedModel.id)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-red-300 bg-red-100 text-red-700 hover:bg-red-200 transition-colors font-medium"
+                >
+                  Switch to {suggestedModel.name} ({suggestedModel.size})
+                </button>
+              )}
+              {!isShaderF16 && !isStorageError && onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-red-200 bg-white text-red-600 hover:bg-red-50 transition-colors font-medium"
+                >
+                  Clear cache &amp; retry
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -356,13 +392,27 @@ export function GhostModeToggle() {
   const ghostOpenEnabled = useGhostModeStore((s) => s.ghostOpenEnabled);
   const setGhostOpenEnabled = useGhostModeStore((s) => s.setGhostOpenEnabled);
   const modelStatus = useGhostModeStore((s) => s.modelStatus);
+  const selectedModelId = useGhostModeStore((s) => s.selectedModelId);
+  const setSelectedModelId = useGhostModeStore((s) => s.setSelectedModelId);
+  const { loadModel } = useGhostLLM();
+
+  const handleRetry = React.useCallback(() => {
+    loadModel(selectedModelId);
+  }, [loadModel, selectedModelId]);
+
+  const handleSwitchModel = React.useCallback((id: string) => {
+    setSelectedModelId(id);
+  }, [setSelectedModelId]);
 
   return (
     <div className="flex flex-col gap-2">
       {/* ── Loading bar (Ghost local only, hidden when Ghost Open is active) ── */}
       {enabled && (modelStatus === "loading" || modelStatus === "error") && (
         <div className="px-3">
-          <GhostLoadingBar />
+          <GhostLoadingBar
+            onRetry={modelStatus === "error" ? handleRetry : undefined}
+            onSwitchModel={handleSwitchModel}
+          />
         </div>
       )}
 
