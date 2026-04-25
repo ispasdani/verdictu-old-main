@@ -1842,22 +1842,101 @@ export default function ChatPage() {
             </React.Fragment>
           ))}
 
-          {/* ── Current turn: user question ── */}
+          {/* ── Empty state — shown when no question yet and agent hasn't run ── */}
+          {!isRunning && !currentDisplayText && completedTurns.length === 0 && (
+            <div className="flex flex-col items-center pt-16 pb-8">
+              <div className="w-14 h-14 rounded-xl bg-secondary border border-border flex items-center justify-center mb-5">
+                <Scale size={22} className="text-foreground/40" />
+              </div>
+              <h2 className="text-base font-semibold text-foreground/70 mb-1.5">
+                Verdictu Legal AI
+              </h2>
+              <p className="text-sm text-muted-foreground/50 mb-8 text-center max-w-xs">
+                Ask a question or pick a mode below to get started
+              </p>
+              <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
+                {(
+                  [
+                    {
+                      icon: Search,
+                      bg: "bg-indigo-50",
+                      color: "text-indigo-500",
+                      title: "Analyze a regulation",
+                      desc: "Ask about GDPR, AI Act, DSA and national laws",
+                      hint: "Is this GDPR-compliant?",
+                      hintColor: "text-indigo-400",
+                    },
+                    {
+                      icon: BookOpen,
+                      bg: "bg-emerald-50",
+                      color: "text-emerald-500",
+                      title: "Research case law",
+                      desc: "Deep search across legal databases",
+                      hint: "Find relevant precedents for…",
+                      hintColor: "text-emerald-500",
+                    },
+                    {
+                      icon: FileText,
+                      bg: "bg-amber-50",
+                      color: "text-amber-500",
+                      title: "Draft a document",
+                      desc: "Memos, responses, compliance reports",
+                      hint: "Draft a DPA for…",
+                      hintColor: "text-amber-500",
+                    },
+                    {
+                      icon: Ghost,
+                      bg: "bg-foreground/5",
+                      color: "text-foreground/50",
+                      title: "Ghost Mode",
+                      desc: "Private, offline AI — no data retention",
+                      hint: "Enable in the toolbar below",
+                      hintColor: "text-foreground/30",
+                    },
+                  ] as const
+                ).map((card, i) => {
+                  const CardIcon = card.icon;
+                  return (
+                    <div
+                      key={i}
+                      className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-6 h-6 rounded ${card.bg} flex items-center justify-center shrink-0`}
+                        >
+                          <CardIcon size={12} className={card.color} />
+                        </div>
+                        <span className="text-sm font-medium text-foreground/80">
+                          {card.title}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground/55 leading-relaxed">
+                        {card.desc}
+                      </p>
+                      <p
+                        className={`text-xs font-mono truncate ${card.hintColor}`}
+                      >
+                        {card.hint}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Current turn: user question (only shown once a question is in flight) ── */}
+          {currentDisplayText && (
           <div className="bg-secondary/50 rounded-lg border border-border p-5">
             <div className="flex items-start gap-3">
               <div className="w-7 h-7 rounded-full bg-foreground/5 border border-border flex items-center justify-center shrink-0 text-foreground/50 text-xs font-bold mt-0.5">
                 U
               </div>
               <div className="flex-1 min-w-0">
-                {currentDisplayText ? (
-                  <p className="text-foreground text-[15px] leading-relaxed">
-                    {currentDisplayText}
-                  </p>
-                ) : (
-                  <p className="text-muted-foreground italic text-sm">
-                    No question provided.
-                  </p>
-                )}
+                <p className="text-foreground text-[15px] leading-relaxed">
+                  {currentDisplayText}
+                </p>
                 <div className="flex flex-wrap gap-1.5 mt-3">
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
                     <Globe size={9} />
@@ -1893,6 +1972,7 @@ export default function ChatPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* ── Ghost mode: model not ready warning ── */}
           {ghostEnabled && ghostModelStatus === "loading" && !error && (
@@ -1917,7 +1997,8 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* ── Agent steps card ── */}
+          {/* ── Agent steps card — only while running ── */}
+          {isRunning && !isDone && (
           <div className="bg-card rounded-lg border border-border overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -2006,6 +2087,7 @@ export default function ChatPage() {
               ))}
             </div>
           </div>
+          )}
 
           {/* ── Streaming answer ── */}
           {answerText && (

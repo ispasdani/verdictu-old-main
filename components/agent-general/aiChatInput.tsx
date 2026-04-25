@@ -15,6 +15,8 @@ import {
   Globe,
   Cloud,
   HardDrive,
+  Search,
+  Scale,
 } from "lucide-react";
 import {
   useChatComposerStore,
@@ -23,6 +25,7 @@ import {
 } from "@/store/chatComposerStore";
 import { useChatStorageStore } from "@/store/chatStorageStore";
 import { GhostModeToggle } from "@/components/ghost/GhostModeToggle";
+import { useGhostModeStore } from "@/store/ghostModeStore";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -104,15 +107,25 @@ export default function AIChatInput({
   const isDragOver = useChatComposerStore((s) => s.isDragOver);
   const jurisdiction = useChatComposerStore((s) => s.jurisdiction);
   const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
+  const deepSearchEnabled = useChatComposerStore((s) => s.deepSearchEnabled);
 
   const storageMode = useChatStorageStore((s) => s.storageMode);
   const setStorageMode = useChatStorageStore((s) => s.setStorageMode);
+
+  const ghostEnabled = useGhostModeStore((s) => s.enabled);
+  const ghostOpenEnabled = useGhostModeStore((s) => s.ghostOpenEnabled);
+  const setGhostEnabled = useGhostModeStore((s) => s.setEnabled);
+  const setGhostOpenEnabled = useGhostModeStore((s) => s.setGhostOpenEnabled);
+  const isGeneralMode = !ghostEnabled && !ghostOpenEnabled;
 
   const setText = useChatComposerStore((s) => s.setText);
   const setGlobalError = useChatComposerStore((s) => s.setGlobalError);
   const setIsDragOver = useChatComposerStore((s) => s.setIsDragOver);
   const setJurisdiction = useChatComposerStore((s) => s.setJurisdiction);
   const setCitationEnabled = useChatComposerStore((s) => s.setCitationEnabled);
+  const setDeepSearchEnabled = useChatComposerStore(
+    (s) => s.setDeepSearchEnabled,
+  );
   const addAttachments = useChatComposerStore((s) => s.addAttachments);
   const updateAttachment = useChatComposerStore((s) => s.updateAttachment);
   const removeAttachment = useChatComposerStore((s) => s.removeAttachment);
@@ -452,6 +465,33 @@ export default function AIChatInput({
               </span>
             </button>
 
+            {/* DeepSearch toggle */}
+            <button
+              type="button"
+              onClick={() => setDeepSearchEnabled(!deepSearchEnabled)}
+              title={
+                deepSearchEnabled
+                  ? "DeepSearch on — click to disable web search"
+                  : "DeepSearch off — click to enable web search"
+              }
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md transition-colors text-xs font-medium ${
+                deepSearchEnabled
+                  ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                  : "bg-transparent border-border text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              <Search
+                size={13}
+                className={
+                  deepSearchEnabled ? "text-indigo-600" : "text-muted-foreground"
+                }
+              />
+              <span>DeepSearch</span>
+              {deepSearchEnabled && (
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+              )}
+            </button>
+
             {/* Jurisdiction */}
             {showJurisdiction && (
               <div
@@ -494,6 +534,26 @@ export default function AIChatInput({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* General mode button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!isGeneralMode) {
+                  setGhostEnabled(false);
+                  setGhostOpenEnabled(false);
+                }
+              }}
+              title="General mode — Legal AI with DeepSearch"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all text-xs font-medium shrink-0 ${
+                isGeneralMode
+                  ? "bg-foreground/10 border-foreground/20 text-foreground"
+                  : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground/70"
+              }`}
+            >
+              <Scale size={13} />
+              <span>General</span>
+            </button>
+
             {/* Ghost Mode */}
             <GhostModeToggle />
 

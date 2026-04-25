@@ -26,6 +26,7 @@ type ComposerState = {
   // session settings
   jurisdiction: string;
   citationEnabled: boolean;
+  deepSearchEnabled: boolean;
 
   // actions
   setText: (text: string) => void;
@@ -33,6 +34,7 @@ type ComposerState = {
   setGlobalError: (v: string | null) => void;
   setJurisdiction: (jurisdiction: string) => void;
   setCitationEnabled: (v: boolean) => void;
+  setDeepSearchEnabled: (v: boolean) => void;
 
   addAttachments: (items: AttachmentItem[]) => void;
   updateAttachment: (id: string, patch: Partial<AttachmentItem>) => void;
@@ -50,12 +52,14 @@ export const useChatComposerStore = create<ComposerState>((set) => ({
   isDragOver: false,
   jurisdiction: "",
   citationEnabled: true,
+  deepSearchEnabled: true,
 
   setText: (text) => set({ text }),
   setIsDragOver: (isDragOver) => set({ isDragOver }),
   setGlobalError: (globalError) => set({ globalError }),
   setJurisdiction: (jurisdiction) => set({ jurisdiction }),
   setCitationEnabled: (citationEnabled) => set({ citationEnabled }),
+  setDeepSearchEnabled: (deepSearchEnabled) => set({ deepSearchEnabled }),
 
   addAttachments: (items) =>
     set((s) => ({
@@ -87,5 +91,6 @@ export const useChatComposerStore = create<ComposerState>((set) => ({
       isDragOver: false,
       jurisdiction: "",
       citationEnabled: true,
+      deepSearchEnabled: true,
     }),
 }));
