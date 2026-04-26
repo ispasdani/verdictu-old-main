@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
         // ── Turn 2: Deep Search ────────────────────────────────────────────
         const queries =
           lawResult.searchQueries.length > 0
-            ? lawResult.searchQueries.slice(0, 5)
+            ? lawResult.searchQueries.slice(0, 1)
             : [`${jurisdiction} ${message.slice(0, 80)} law statute`];
 
         const allSources: Array<{
@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
             });
 
             try {
-              const results = await search(query, baseUrl, 5);
+              const results = await search(query, baseUrl, 10);
               allSources.push(...results);
               emit({
                 step: "search_results",

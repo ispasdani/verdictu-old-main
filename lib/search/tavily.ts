@@ -24,7 +24,7 @@ export async function tavilySearch(
     body: JSON.stringify({
       api_key: apiKey,
       query,
-      search_depth: "advanced",
+      search_depth: "basic",
       include_answer: false,
       include_raw_content: false,
       max_results: maxResults,

@@ -86,7 +86,7 @@ Rules: queries must target statutes, regulations, exceptions, case law, and lega
     if (parsed && Array.isArray(parsed.queries) && parsed.queries.length > 0) {
       const queries = (parsed.queries as unknown[])
         .filter((q): q is string => typeof q === "string")
-        .slice(0, 4);
+        .slice(0, 1);
       if (queries.length > 0) {
         return {
           queries,
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
             emit({ step: "searching", query, index: i + 1, total: searchQueries.length });
 
             try {
-              const results = await search(query, baseUrl, 5);
+              const results = await search(query, baseUrl, 10);
               const mapped: GhostAgentSource[] = results.map((r) => ({
                 title: r.title ?? "",
                 url: r.url ?? "",

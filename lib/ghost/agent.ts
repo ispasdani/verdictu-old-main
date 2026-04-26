@@ -112,7 +112,7 @@ Rules: queries must target statutes, regulations, exceptions, case law, and lega
     if (parsed && Array.isArray(parsed.queries) && parsed.queries.length > 0) {
       const queries = (parsed.queries as unknown[])
         .filter((q): q is string => typeof q === "string")
-        .slice(0, 4);
+        .slice(0, 1);
       if (queries.length > 0) {
         return {
           queries,
@@ -185,7 +185,7 @@ export async function runGhostAgent({
           const res = await fetch(`${baseUrl}/api/search`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query, maxResults: 5 }),
+            body: JSON.stringify({ query, maxResults: 10 }),
           });
 
           if (res.ok) {
