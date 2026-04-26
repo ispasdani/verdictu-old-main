@@ -138,7 +138,10 @@ export default function AIChatInput({
     [attachments],
   );
   const hasJurisdiction = jurisdiction !== "";
-  const canSend = !hasAnyUploading && (!showJurisdiction || hasJurisdiction) && !externalDisabled;
+  const canSend =
+    !hasAnyUploading &&
+    (!showJurisdiction || hasJurisdiction) &&
+    !externalDisabled;
 
   // ── File handling ───────────────────────────────────────────────────────────
 
@@ -223,7 +226,11 @@ export default function AIChatInput({
   const retryUpload = (id: string) => {
     const att = attachments.find((a) => a.id === id);
     if (!att) return;
-    updateAttachment(id, { status: "uploading", progress: 0, error: undefined });
+    updateAttachment(id, {
+      status: "uploading",
+      progress: 0,
+      error: undefined,
+    });
     extractTextFromFile(id, att.file);
   };
 
@@ -273,7 +280,7 @@ export default function AIChatInput({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl w-full mx-auto px-4 my-20">
+    <div className="w-full w-full mx-auto px-4 my-20">
       <input
         ref={fileInputRef}
         type="file"
@@ -483,7 +490,9 @@ export default function AIChatInput({
               <Search
                 size={13}
                 className={
-                  deepSearchEnabled ? "text-indigo-600" : "text-muted-foreground"
+                  deepSearchEnabled
+                    ? "text-indigo-600"
+                    : "text-muted-foreground"
                 }
               />
               <span>DeepSearch</span>
@@ -503,16 +512,26 @@ export default function AIChatInput({
               >
                 <Globe
                   size={13}
-                  className={!hasJurisdiction ? "text-amber-500 shrink-0" : "text-muted-foreground shrink-0"}
+                  className={
+                    !hasJurisdiction
+                      ? "text-amber-500 shrink-0"
+                      : "text-muted-foreground shrink-0"
+                  }
                 />
                 <select
                   value={jurisdiction}
                   onChange={(e) => setJurisdiction(e.target.value)}
                   className={`bg-transparent border-none outline-none text-xs font-medium cursor-pointer appearance-none pr-3 ${
-                    !hasJurisdiction ? "text-amber-500" : "text-muted-foreground"
+                    !hasJurisdiction
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
                   }`}
                 >
-                  <option value="" disabled className="bg-card text-muted-foreground">
+                  <option
+                    value=""
+                    disabled
+                    className="bg-card text-muted-foreground"
+                  >
                     Select jurisdiction
                   </option>
                   {JURISDICTIONS.map((j) => (

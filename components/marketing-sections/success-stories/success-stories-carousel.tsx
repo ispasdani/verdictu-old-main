@@ -40,7 +40,7 @@ export default function SuccessStoriesCarousel({
   return (
     <div className="border border-black max-w-[95rem] w-full mx-auto">
       {/* Header: counter + prev/next */}
-      <div className="flex items-center justify-between px-8 md:px-12 py-4 border-b border-black">
+      <div className="flex items-center justify-between px-8 md:px-12 py-4 border-b border-black bg-[#f8a100]">
         <p className="font-semibold uppercase tracking-widest text-sm">
           {pad(current + 1)}&nbsp;/&nbsp;{pad(total)}
         </p>
@@ -77,8 +77,8 @@ export default function SuccessStoriesCarousel({
       >
         {/* Quote */}
         <div className="p-8 md:p-12 border-b border-black md:border-b-0 md:border-r">
-          <span className="px-3 py-1.5 border border-black rounded-full inline-block mb-8">
-            <p className="uppercase text-sm font-semibold">{story.category}</p>
+          <span className="px-3 py-1.5 bg-[#f8a100] border border-black rounded-full inline-block mb-8">
+            <p className="uppercase text-sm font-semibold ">{story.category}</p>
           </span>
           <blockquote className="text-blog-quote">
             &ldquo;{story.quote}&rdquo;

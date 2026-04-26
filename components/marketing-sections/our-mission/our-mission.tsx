@@ -14,14 +14,12 @@ export default function OurMission() {
         />
       </div>
 
-      <div className="p-8 md:p-12 flex flex-col justify-center gap-6">
+      <div className="p-8 md:p-12 flex flex-col justify-center gap-6 bg-[#155240] text-white">
         <div className="flex flex-col gap-4">
           <p className="uppercase font-semibold tracking-widest text-sm">
             Our Mission
           </p>
-          <h3 className="heading3-title">
-            Law and clarity for everyone.
-          </h3>
+          <h3 className="heading3-title">Law and clarity for everyone.</h3>
         </div>
 
         <p>
@@ -38,7 +36,7 @@ export default function OurMission() {
           curious citizen, Verdictu is your trusted source for law and clarity.
         </p>
 
-        <div className="flex flex-col gap-1 pt-4 border-t border-black">
+        <div className="flex flex-col gap-1 pt-4 border-t border-white">
           <p className="font-semibold text-lg">Founder Name</p>
           <p>Founder &amp; Editor-in-Chief</p>
         </div>
