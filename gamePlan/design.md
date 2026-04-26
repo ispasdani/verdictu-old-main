@@ -12,8 +12,9 @@ Verdictu is a legal AI platform with an editorial, newspaper-inspired visual ide
 |---|---|---|
 | Black | `#000000` | Borders, primary text, nav dividers, section outlines, footer bg |
 | White | `#ffffff` | Page background, text on dark surfaces |
-| Amber Accent | `#f8a100` | Success Stories header bar, category badge fills |
-| Forest Green | `#155240` | Our Mission section background |
+| Amber Accent | `#f8a100` / `var(--color-amber)` | Success Stories header bar, category badge fills |
+| Forest Green | `#155240` / `var(--color-green)` | Our Mission section background |
+| Electric Purple | `#850cff` / `var(--color-purple)` | Brand accent — TBD usage |
 | Muted BG | `oklch(0.97 0 0)` ≈ `#f7f7f7` | Secondary surfaces, table category rows |
 | Muted FG | `oklch(0.556 0 0)` ≈ `#6b6b6b` | Secondary text, captions |
 | Indigo (active) | `indigo-50 / indigo-700` | DeepSearch toggle active state |
