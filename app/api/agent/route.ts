@@ -40,6 +40,7 @@ export interface AgentRequestBody {
   mode?: "General" | "Compare" | "Draft";
   attachments?: Attachment[];
   citationEnabled?: boolean;
+  deepSearchEnabled?: boolean;
   provider?: AIProvider;
   model?: string;
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
@@ -147,6 +148,7 @@ export async function POST(req: NextRequest) {
     mode = "General",
     attachments,
     citationEnabled = true,
+    deepSearchEnabled = true,
     provider = DEFAULT_PROVIDER,
     model: requestedModel,
     conversationHistory = [],
@@ -218,8 +220,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // ── Turn 2: Deep Search (always on) ───────────────────────────────
-        // Build queries: AI-generated + one fallback
+        // ── Turn 2: Deep Search ────────────────────────────────────────────
         const queries =
           lawResult.searchQueries.length > 0
             ? lawResult.searchQueries.slice(0, 5)
@@ -233,35 +234,42 @@ export async function POST(req: NextRequest) {
           score?: number;
         }> = [];
 
-        // Run searches sequentially and emit progress per query
-        for (let i = 0; i < queries.length; i++) {
-          const query = queries[i];
+        if (deepSearchEnabled) {
           emit({
-            step: "searching",
-            data: { query, index: i + 1, total: queries.length },
+            step: "search_queries",
+            data: { queries },
           });
 
-          try {
-            const results = await search(query, baseUrl, 5);
-            allSources.push(...results);
+          for (let i = 0; i < queries.length; i++) {
+            const query = queries[i];
             emit({
-              step: "search_results",
-              data: {
-                query,
-                count: results.length,
-                sources: results.slice(0, 3).map((r) => ({
-                  title: r.title,
-                  url: r.url,
-                  domain: r.domain,
-                })),
-              },
+              step: "searching",
+              data: { query, index: i + 1, total: queries.length },
             });
-          } catch {
-            // One failed query is non-fatal
+
+            try {
+              const results = await search(query, baseUrl, 5);
+              allSources.push(...results);
+              emit({
+                step: "search_results",
+                data: {
+                  query,
+                  count: results.length,
+                  sources: results.map((r) => ({
+                    title: r.title,
+                    url: r.url,
+                    domain: r.domain,
+                    snippet: r.snippet,
+                  })),
+                },
+              });
+            } catch {
+              // One failed query is non-fatal
+            }
           }
         }
 
-        // Deduplicate by URL, prefer higher score
+        // Deduplicate by URL
         const seen = new Set<string>();
         const sources = allSources.filter((r) => {
           if (!r.url || seen.has(r.url)) return false;
@@ -388,10 +396,11 @@ export async function POST(req: NextRequest) {
         emit({
           step: "done",
           data: {
-            sources: sources.slice(0, 12).map((s) => ({
+            sources: sources.map((s) => ({
               title: s.title,
               url: s.url,
               domain: s.domain,
+              snippet: s.snippet,
             })),
             laws: lawResult.laws,
             followUpQuestions,

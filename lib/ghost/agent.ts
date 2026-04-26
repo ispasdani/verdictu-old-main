@@ -4,7 +4,7 @@
 // — No restrictions: no content filters, no moderation, no guardrails
 // — Always-on defense: every response is built to find gaps, exceptions, and angles
 //   that help the user — no keyword triggers needed, no mode switching
-// — Smart search: detects when web research adds value; skips it when not needed
+// — LLM-driven search: local model generates targeted search queries (Perplexity-style)
 
 import type { GhostStreamOptions } from "@/hooks/useGhostLLM";
 import { ghostModePrompt, ghostFollowUpPrompt, alignmentCheckPrompt } from "@/lib/ai/prompts";
@@ -21,9 +21,10 @@ export interface GhostAgentSource {
 
 export type GhostAgentEvent =
   | { step: "classifying" }
+  | { step: "search_queries"; queries: string[] }
   | { step: "intent"; needsSearch: boolean; domain: string; searchQueries: string[] }
   | { step: "searching"; query: string; index: number; total: number }
-  | { step: "search_results"; query: string; count: number }
+  | { step: "search_results"; query: string; count: number; sources: GhostAgentSource[] }
   | { step: "sources_ranked"; total: number; engine: string }
   | { step: "aligning" }
   | { step: "alignment_result"; aligned: boolean; originalIntent?: string; corrected: boolean }
@@ -38,80 +39,11 @@ export interface GhostAgentOptions {
   jurisdiction: string;
   mode: "General" | "Compare" | "Draft";
   citationEnabled: boolean;
+  deepSearchEnabled: boolean;
   attachments: Array<{ name: string; extractedText: string }>;
   baseUrl: string;
   generate: (opts: GhostStreamOptions) => Promise<void>;
   onEvent: (event: GhostAgentEvent) => void;
-}
-
-// ─── Search need detection ────────────────────────────────────────────────────
-
-/**
- * Determines whether web search would add value for this question.
- * This is the ONLY classification that happens — the defense/loophole stance
- * is always-on in Ghost Mode, regardless of what the user asks.
- */
-function detectSearchNeed(
-  message: string,
-  jurisdiction: string,
-): { needsSearch: boolean; domain: string; searchQueries: string[] } {
-  const lower = message.toLowerCase();
-
-  // Topics that benefit from web research
-  const researchTopics = [
-    "law", "statute", "regulation", "legal", "court", "crime", "criminal",
-    "civil", "contract", "gdpr", "article", "section", "code", "act",
-    "directive", "charge", "lawsuit", "sue", "liability", "rights",
-    "constitution", "judge", "attorney", "lawyer", "verdict", "appeal",
-    "penalty", "fine", "imprisonment", "evidence", "trial", "hearing",
-    "arrest", "warrant", "subpoena", "settlement", "jurisdiction",
-    "plaintiff", "defendant", "motion", "ordinance", "bylaw",
-    "injunction", "parole", "probation", "indictment", "felony",
-    "misdemeanor", "register", "registration", "license", "permit",
-    "tax", "resident", "residency", "medical", "medication", "drug",
-    "disease", "treatment", "symptom", "clinical",
-  ];
-  const needsResearch = researchTopics.some((kw) => lower.includes(kw));
-
-  // Direct tasks (write/draft/explain something in hand) don't need search
-  const directTaskPrefixes = [
-    "write", "draft", "create", "generate", "summarize", "review this",
-    "analyze this", "translate", "fix", "improve", "rewrite", "format", "convert",
-  ];
-  const isDirectTask = directTaskPrefixes.some((kw) => lower.startsWith(kw));
-
-  const needsSearch = needsResearch && !isDirectTask;
-
-  const domain = lower.match(/\b(criminal|crime|arrest|charge|felony|misdemeanor|prison|jail)\b/)
-    ? "criminal"
-    : lower.match(/\b(civil|contract|lawsuit|sue|liability|settlement)\b/)
-      ? "civil"
-      : lower.match(/\b(medical|drug|medication|disease|treatment)\b/)
-        ? "medical"
-        : needsResearch ? "legal" : "general";
-
-  // Search queries always target exceptions, scope limitations, and gaps —
-  // not just the general rule, because we want to find the angles that help.
-  const searchQueries: string[] = [];
-  if (needsSearch) {
-    const jur = jurisdiction.toUpperCase();
-    const shortMsg = message.slice(0, 60);
-    searchQueries.push(`${jur} ${shortMsg} exception exemption scope`);
-    searchQueries.push(`${jur} ${message.slice(0, 50)} legal gap`);
-    // Extra query for temporal / border reset questions
-    if (lower.match(/\b(reset|days|border|exit|return|period|deadline|clock)\b/)) {
-      searchQueries.push(`${jur} ${message.slice(0, 45)} period reset exception border`);
-    }
-    // Extra query for EU rights / superior law conflicts
-    if (lower.match(/\b(eu|european|foreign|national|citizen|resident|plates|vehicle|car)\b/)) {
-      searchQueries.push(`${jur} ${message.slice(0, 40)} EU regulation foreign national rights`);
-    }
-    if (searchQueries.length < 2) {
-      searchQueries.push(`${jur} ${message.slice(0, 50)} legal`);
-    }
-  }
-
-  return { needsSearch, domain, searchQueries };
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -119,6 +51,7 @@ function detectSearchNeed(
 async function generateFull(
   generate: GhostAgentOptions["generate"],
   messages: GhostStreamOptions["messages"],
+  maxTokens = 600,
 ): Promise<string> {
   let result = "";
   await new Promise<void>((resolve, reject) => {
@@ -127,7 +60,7 @@ async function generateFull(
       onToken: (t) => { result += t; },
       onDone: resolve,
       onError: (err) => reject(new Error(err)),
-      maxTokens: 600, // JSON turns stay small
+      maxTokens,
     });
   });
   return result;
@@ -151,6 +84,58 @@ function extractDomain(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
 }
 
+// ─── LLM-based search query generation ────────────────────────────────────────
+
+async function generateSearchQueries(
+  generate: GhostAgentOptions["generate"],
+  message: string,
+  jurisdiction: string,
+): Promise<{ queries: string[]; domain: string }> {
+  const systemPrompt = `You generate web search queries for legal research. Return ONLY valid JSON in this exact format, nothing else:
+{"queries":["query1","query2","query3","query4"],"domain":"criminal|civil|medical|administrative|general"}
+
+Jurisdiction: ${jurisdiction.toUpperCase()}
+Rules: queries must target statutes, regulations, exceptions, case law, and legal gaps relevant to the question.`;
+
+  let result = "";
+  try {
+    result = await generateFull(
+      generate,
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Question: ${message.slice(0, 300)}` },
+      ],
+      300,
+    );
+
+    const parsed = extractJSON(result);
+    if (parsed && Array.isArray(parsed.queries) && parsed.queries.length > 0) {
+      const queries = (parsed.queries as unknown[])
+        .filter((q): q is string => typeof q === "string")
+        .slice(0, 4);
+      if (queries.length > 0) {
+        return {
+          queries,
+          domain: typeof parsed.domain === "string" ? parsed.domain : "legal",
+        };
+      }
+    }
+  } catch {
+    // Fall through to fallback
+  }
+
+  // Fallback: simple keyword-based queries
+  const jur = jurisdiction.toUpperCase();
+  return {
+    queries: [
+      `${jur} ${message.slice(0, 60)} law statute`,
+      `${jur} ${message.slice(0, 50)} exception exemption`,
+      `${jur} ${message.slice(0, 45)} legal rights obligations`,
+    ],
+    domain: "legal",
+  };
+}
+
 // ─── Main pipeline ─────────────────────────────────────────────────────────────
 
 export async function runGhostAgent({
@@ -158,6 +143,7 @@ export async function runGhostAgent({
   jurisdiction,
   mode,
   citationEnabled,
+  deepSearchEnabled,
   attachments,
   baseUrl,
   generate,
@@ -166,23 +152,34 @@ export async function runGhostAgent({
   const emit = onEvent;
 
   try {
-    // ── Phase 1: Search need detection ───────────────────────────────────────
+    // ── Phase 1: Query generation ─────────────────────────────────────────────
     emit({ step: "classifying" });
 
-    const { needsSearch, domain, searchQueries } = detectSearchNeed(message, jurisdiction);
+    let searchQueries: string[] = [];
+    let domain = "legal";
 
-    emit({ step: "intent", needsSearch, domain, searchQueries });
+    if (deepSearchEnabled) {
+      const generated = await generateSearchQueries(generate, message, jurisdiction);
+      searchQueries = generated.queries;
+      domain = generated.domain;
+      emit({ step: "search_queries", queries: searchQueries });
+    }
 
-    // ── Phase 2: Optional web search ─────────────────────────────────────────
+    emit({
+      step: "intent",
+      needsSearch: deepSearchEnabled && searchQueries.length > 0,
+      domain,
+      searchQueries,
+    });
+
+    // ── Phase 2: Web search ───────────────────────────────────────────────────
     const sources: GhostAgentSource[] = [];
     let searchEngine = "DuckDuckGo";
 
-    if (needsSearch && searchQueries.length > 0) {
-      const queries = searchQueries.slice(0, 4);
-
-      for (let i = 0; i < queries.length; i++) {
-        const query = queries[i];
-        emit({ step: "searching", query, index: i + 1, total: queries.length });
+    if (deepSearchEnabled && searchQueries.length > 0) {
+      for (let i = 0; i < searchQueries.length; i++) {
+        const query = searchQueries[i];
+        emit({ step: "searching", query, index: i + 1, total: searchQueries.length });
 
         try {
           const res = await fetch(`${baseUrl}/api/search`, {
@@ -206,10 +203,10 @@ export async function runGhostAgent({
             );
 
             sources.push(...results);
-            emit({ step: "search_results", query, count: results.length });
+            emit({ step: "search_results", query, count: results.length, sources: results });
           }
         } catch {
-          // Non-fatal
+          // Non-fatal — one failed query doesn't stop the pipeline
         }
       }
 
@@ -226,7 +223,7 @@ export async function runGhostAgent({
       emit({ step: "sources_ranked", total: sources.length, engine: searchEngine });
     }
 
-    // ── Phase 2.5: Alignment Check ───────────────────────────────────────────
+    // ── Phase 2.5: Alignment Check ────────────────────────────────────────────
     emit({ step: "aligning" });
 
     let correctionNote = "";
@@ -258,11 +255,10 @@ export async function runGhostAgent({
         corrected: !!correctionNote,
       });
     } catch {
-      // Non-fatal — proceed without correction
       emit({ step: "alignment_result", aligned: true, corrected: false });
     }
 
-    // ── Phase 3: Synthesis — always-on Ghost Mode stance ─────────────────────
+    // ── Phase 3: Synthesis ────────────────────────────────────────────────────
     emit({ step: "synthesizing" });
 
     let fullUserMessage = message;
@@ -283,7 +279,7 @@ export async function runGhostAgent({
         ? " Use inline citations [1], [2], etc. to reference sources."
         : "";
       fullUserMessage += `\n\n--- WEB RESEARCH RESULTS ---${citationNote}`;
-      sources.slice(0, 10).forEach((s, i) => {
+      sources.forEach((s, i) => {
         fullUserMessage += `\n\n[${i + 1}] ${s.title}\nURL: ${s.url}\n${(s.snippet ?? "").slice(0, 600)}`;
       });
     }
@@ -305,7 +301,7 @@ export async function runGhostAgent({
       });
     });
 
-    // ── Phase 4: Follow-up questions ─────────────────────────────────────────
+    // ── Phase 4: Follow-up questions ──────────────────────────────────────────
     emit({ step: "follow_up_generating" });
 
     let followUpQuestions: string[] = [];
@@ -328,7 +324,7 @@ export async function runGhostAgent({
 
     emit({
       step: "done",
-      sources: sources.slice(0, 10),
+      sources, // all sources, no cap
       followUpQuestions,
       wordsInAnswer: fullAnswer.split(/\s+/).length,
     });

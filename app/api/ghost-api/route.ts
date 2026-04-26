@@ -5,13 +5,11 @@
 // ─── Backend integration status ───────────────────────────────────────────────
 // ✅ OpenRouter streaming — ready (lib/ghost/openrouter.ts)
 // ✅ Ghost agent pipeline — ready (lib/ghost/agent.ts via runGhostAgentApi below)
+// ✅ LLM-driven search query generation — Perplexity-style
 // ❌ Clerk auth check     — not wired yet (TODO: Phase 1)
 // ❌ Convex credit check  — not wired yet (TODO: Phase 1)
 // ❌ Convex credit deduct — not wired yet (TODO: Phase 1)
 // ❌ Convex usage logging — not wired yet (TODO: Phase 2)
-//
-// Once the backend is wired, follow the Architecture section in
-// docs/ghost-api-billing-plan.md for the exact integration order.
 
 import { NextRequest } from "next/server";
 import { ghostModePrompt, ghostFollowUpPrompt, alignmentCheckPrompt } from "@/lib/ai/prompts";
@@ -29,6 +27,7 @@ export interface GhostApiRequestBody {
   jurisdiction: string;
   mode?: "General" | "Compare" | "Draft";
   citationEnabled?: boolean;
+  deepSearchEnabled?: boolean;
   attachments?: Array<{ name: string; extractedText: string }>;
   modelId?: string;
 }
@@ -40,55 +39,7 @@ function sseChunk(data: object): Uint8Array {
   return enc.encode(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-// ─── Search need detection (mirrors lib/ghost/agent.ts) ──────────────────────
-
-function detectSearchNeed(message: string, jurisdiction: string) {
-  const lower = message.toLowerCase();
-
-  const researchTopics = [
-    "law", "statute", "regulation", "legal", "court", "crime", "criminal",
-    "civil", "contract", "gdpr", "article", "section", "code", "act",
-    "directive", "charge", "lawsuit", "sue", "liability", "rights",
-    "constitution", "judge", "attorney", "lawyer", "verdict", "appeal",
-    "penalty", "fine", "imprisonment", "evidence", "trial", "hearing",
-    "arrest", "warrant", "subpoena", "settlement", "jurisdiction",
-    "plaintiff", "defendant", "motion", "ordinance", "bylaw",
-    "injunction", "parole", "probation", "indictment", "felony",
-    "misdemeanor", "register", "registration", "license", "permit",
-    "tax", "resident", "residency", "medical", "medication", "drug",
-  ];
-  const directTaskPrefixes = [
-    "write", "draft", "create", "generate", "summarize", "review this",
-    "analyze this", "translate", "fix", "improve", "rewrite", "format", "convert",
-  ];
-
-  const needsResearch = researchTopics.some((kw) => lower.includes(kw));
-  const isDirectTask = directTaskPrefixes.some((kw) => lower.startsWith(kw));
-  const needsSearch = needsResearch && !isDirectTask;
-
-  const domain = lower.match(/\b(criminal|crime|arrest|charge|felony|misdemeanor|prison|jail)\b/)
-    ? "criminal"
-    : lower.match(/\b(civil|contract|lawsuit|sue|liability|settlement)\b/)
-      ? "civil"
-      : lower.match(/\b(medical|drug|medication|disease|treatment)\b/)
-        ? "medical"
-        : needsResearch ? "legal" : "general";
-
-  const searchQueries: string[] = [];
-  if (needsSearch) {
-    const jur = jurisdiction.toUpperCase();
-    searchQueries.push(`${jur} ${message.slice(0, 60)} exception exemption scope`);
-    searchQueries.push(`${jur} ${message.slice(0, 50)} legal gap`);
-    if (lower.match(/\b(reset|days|border|exit|return|period|deadline|clock)\b/)) {
-      searchQueries.push(`${jur} ${message.slice(0, 45)} period reset exception border`);
-    }
-    if (lower.match(/\b(eu|european|foreign|national|citizen|resident|plates|vehicle|car)\b/)) {
-      searchQueries.push(`${jur} ${message.slice(0, 40)} EU regulation foreign national rights`);
-    }
-  }
-
-  return { needsSearch, domain, searchQueries };
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractDomain(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
@@ -104,6 +55,60 @@ function extractJSON(text: string): Record<string, unknown> | null {
   return null;
 }
 
+// ─── LLM-based search query generation ───────────────────────────────────────
+
+async function generateSearchQueries(
+  message: string,
+  jurisdiction: string,
+  modelId: string,
+  signal: AbortSignal,
+): Promise<{ queries: string[]; domain: string }> {
+  const systemPrompt = `You generate web search queries for legal research. Return ONLY valid JSON in this exact format, nothing else:
+{"queries":["query1","query2","query3","query4"],"domain":"criminal|civil|medical|administrative|general"}
+
+Jurisdiction: ${jurisdiction.toUpperCase()}
+Rules: queries must target statutes, regulations, exceptions, case law, and legal gaps relevant to the question.`;
+
+  let result = "";
+  try {
+    await streamOpenRouter({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Question: ${message.slice(0, 300)}` },
+      ],
+      model: modelId,
+      onToken: (t) => { result += t; },
+      onDone: () => {},
+      signal,
+    });
+
+    const parsed = extractJSON(result);
+    if (parsed && Array.isArray(parsed.queries) && parsed.queries.length > 0) {
+      const queries = (parsed.queries as unknown[])
+        .filter((q): q is string => typeof q === "string")
+        .slice(0, 4);
+      if (queries.length > 0) {
+        return {
+          queries,
+          domain: typeof parsed.domain === "string" ? parsed.domain : "legal",
+        };
+      }
+    }
+  } catch {
+    // Fall through to fallback
+  }
+
+  const jur = jurisdiction.toUpperCase();
+  return {
+    queries: [
+      `${jur} ${message.slice(0, 60)} law statute`,
+      `${jur} ${message.slice(0, 50)} exception exemption`,
+      `${jur} ${message.slice(0, 45)} legal rights obligations`,
+    ],
+    domain: "legal",
+  };
+}
+
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -113,6 +118,7 @@ export async function POST(req: NextRequest) {
     jurisdiction = "EU",
     mode = "General",
     citationEnabled = true,
+    deepSearchEnabled = true,
     attachments = [],
     modelId,
   } = body;
@@ -125,18 +131,10 @@ export async function POST(req: NextRequest) {
   }
 
   // ── TODO (Phase 1): Auth & credit gate ─────────────────────────────────────
-  // Uncomment and implement once Clerk + Convex are wired:
-  //
   // const { userId } = await auth();
   // if (!userId) return new Response("Unauthorized", { status: 401 });
-  //
   // const balance = await convex.query(api.users.getCreditBalance, { clerkId: userId });
-  // if (balance < 1) {
-  //   return new Response(JSON.stringify({ error: "insufficient_credits" }), {
-  //     status: 402,
-  //     headers: { "Content-Type": "application/json" },
-  //   });
-  // }
+  // if (balance < 1) { return new Response(..., { status: 402 }); }
   // ───────────────────────────────────────────────────────────────────────────
 
   if (!process.env.OPENROUTER_API_KEY) {
@@ -154,21 +152,38 @@ export async function POST(req: NextRequest) {
       const emit = (data: object) => controller.enqueue(sseChunk(data));
 
       try {
-        // ── Phase 1: Search need detection ─────────────────────────────────
+        // ── Phase 1: LLM query generation ──────────────────────────────────
         emit({ step: "classifying" });
 
-        const { needsSearch, domain, searchQueries } = detectSearchNeed(message, jurisdiction);
-        emit({ step: "intent", needsSearch, domain, searchQueries });
+        let searchQueries: string[] = [];
+        let domain = "legal";
 
-        // ── Phase 2: Optional web search ───────────────────────────────────
+        if (deepSearchEnabled) {
+          const generated = await generateSearchQueries(
+            message,
+            jurisdiction,
+            model.id,
+            req.signal,
+          );
+          searchQueries = generated.queries;
+          domain = generated.domain;
+          emit({ step: "search_queries", queries: searchQueries });
+        }
+
+        emit({
+          step: "intent",
+          needsSearch: deepSearchEnabled && searchQueries.length > 0,
+          domain,
+          searchQueries,
+        });
+
+        // ── Phase 2: Web search ────────────────────────────────────────────
         const sources: GhostAgentSource[] = [];
 
-        if (needsSearch && searchQueries.length > 0) {
-          const queries = searchQueries.slice(0, 4);
-
-          for (let i = 0; i < queries.length; i++) {
-            const query = queries[i];
-            emit({ step: "searching", query, index: i + 1, total: queries.length });
+        if (deepSearchEnabled && searchQueries.length > 0) {
+          for (let i = 0; i < searchQueries.length; i++) {
+            const query = searchQueries[i];
+            emit({ step: "searching", query, index: i + 1, total: searchQueries.length });
 
             try {
               const results = await search(query, baseUrl, 5);
@@ -180,7 +195,7 @@ export async function POST(req: NextRequest) {
                 domain: r.domain ?? extractDomain(r.url ?? ""),
               }));
               sources.push(...mapped);
-              emit({ step: "search_results", query, count: mapped.length });
+              emit({ step: "search_results", query, count: mapped.length, sources: mapped });
             } catch {
               // Non-fatal
             }
@@ -242,7 +257,6 @@ export async function POST(req: NextRequest) {
             corrected: !!correctionNote,
           });
         } catch {
-          // Non-fatal — proceed without correction
           emit({ step: "alignment_result", aligned: true, corrected: false });
         }
 
@@ -267,13 +281,12 @@ export async function POST(req: NextRequest) {
             ? " Use inline citations [1], [2], etc. to reference sources."
             : "";
           fullUserMessage += `\n\n--- WEB RESEARCH RESULTS ---${citationNote}`;
-          sources.slice(0, 10).forEach((s, i) => {
+          sources.forEach((s, i) => {
             fullUserMessage += `\n\n[${i + 1}] ${s.title}\nURL: ${s.url}\n${(s.snippet ?? "").slice(0, 600)}`;
           });
         }
 
         let fullAnswer = "";
-        let usageTokens = { inputTokens: 0, outputTokens: 0 };
 
         await streamOpenRouter({
           messages: [
@@ -285,25 +298,12 @@ export async function POST(req: NextRequest) {
             fullAnswer += token;
             emit({ step: "delta", text: token });
           },
-          onDone: (usage) => {
-            usageTokens = usage;
-          },
+          onDone: () => {},
           signal: req.signal,
         });
 
         // ── TODO (Phase 1): Deduct credit after successful response ─────────
         // await convex.mutation(api.users.deductCredits, { userId: convexUserId, amount: 1 });
-        // await convex.mutation(api.usage.logGhostApiQuery, {
-        //   userId: convexUserId,
-        //   model: model.id,
-        //   inputTokens: usageTokens.inputTokens,
-        //   outputTokens: usageTokens.outputTokens,
-        //   creditsCost: 1,
-        //   queryCostUsd: (usageTokens.inputTokens / 1_000_000) * 0.55
-        //                + (usageTokens.outputTokens / 1_000_000) * 2.19,
-        //   jurisdiction,
-        //   createdAt: Date.now(),
-        // });
         // ───────────────────────────────────────────────────────────────────
 
         // ── Phase 4: Follow-up questions ───────────────────────────────────
@@ -336,11 +336,9 @@ export async function POST(req: NextRequest) {
 
         emit({
           step: "done",
-          sources: sources.slice(0, 10),
+          sources, // all sources, no cap
           followUpQuestions,
           wordsInAnswer: fullAnswer.split(/\s+/).length,
-          // TODO: add credits_remaining once Convex is wired
-          // creditsRemaining: balance - 1,
         });
       } catch (err) {
         emit({

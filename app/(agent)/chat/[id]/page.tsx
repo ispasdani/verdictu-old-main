@@ -76,6 +76,7 @@ interface CompletedTurn {
   userMode: string;
   assistantText: string;
   sources: Source[];
+  searchQueries: string[];
   laws: LawItem[];
   elapsedMs: number;
   isGhost: boolean;
@@ -95,6 +96,7 @@ interface Source {
   title: string;
   url: string;
   domain?: string;
+  snippet?: string;
 }
 
 interface AgentStep {
@@ -520,6 +522,118 @@ function StepRow({
   );
 }
 
+// ─── Perplexity-style Sources Panel ──────────────────────────────────────────
+
+function PerplexitySourcesPanel({
+  queries,
+  sources,
+  isSearching,
+  onCiteClick,
+  highlightedSource,
+}: {
+  queries: string[];
+  sources: Source[];
+  isSearching: boolean;
+  onCiteClick?: (n: number) => void;
+  highlightedSource: number | null;
+}) {
+  if (queries.length === 0 && sources.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      {/* Query chips */}
+      {queries.length > 0 && (
+        <div className="px-4 pt-3 pb-2.5 flex flex-wrap gap-2 border-b border-border/50">
+          {queries.map((q, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary border border-border text-xs text-muted-foreground max-w-sm"
+            >
+              <Search size={9} className="shrink-0 text-muted-foreground/50" />
+              <span className="truncate">{q}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Source count header */}
+      {sources.length > 0 && (
+        <div className="px-4 py-2 flex items-center gap-2">
+          <Globe size={11} className="text-muted-foreground/60" />
+          <span className="text-xs font-medium text-muted-foreground/70">
+            {sources.length} source{sources.length !== 1 ? "s" : ""}
+          </span>
+          {isSearching && (
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+          )}
+        </div>
+      )}
+
+      {/* Source cards — horizontal scroll */}
+      {sources.length > 0 && (
+        <div
+          className="px-4 pb-3 flex gap-2 overflow-x-auto"
+          style={{ scrollbarWidth: "thin" }}
+        >
+          {sources.map((s, i) => (
+            <a
+              key={i}
+              id={`source-${i + 1}`}
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => onCiteClick?.(i + 1)}
+              className={`flex-none w-44 p-2.5 rounded-lg border transition-colors group cursor-pointer ${
+                highlightedSource === i + 1
+                  ? "border-indigo-300 bg-indigo-50"
+                  : "border-border bg-secondary/40 hover:bg-secondary/70"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span
+                  className={`text-[10px] font-bold shrink-0 w-4 text-center ${
+                    highlightedSource === i + 1
+                      ? "text-indigo-600"
+                      : "text-muted-foreground/50"
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://www.google.com/s2/favicons?domain=${s.domain ?? ""}&sz=16`}
+                  className="w-3.5 h-3.5 shrink-0"
+                  alt=""
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+                <span className="text-[10px] text-muted-foreground/60 truncate">
+                  {s.domain}
+                </span>
+              </div>
+              <div
+                className={`text-xs leading-relaxed line-clamp-2 transition-colors ${
+                  highlightedSource === i + 1
+                    ? "text-indigo-700 font-medium"
+                    : "text-foreground/75 group-hover:text-foreground"
+                }`}
+              >
+                {s.title}
+              </div>
+              {s.snippet && (
+                <div className="mt-1 text-[10px] text-muted-foreground/50 line-clamp-2 leading-relaxed">
+                  {s.snippet.slice(0, 120)}
+                </div>
+              )}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Initial steps ────────────────────────────────────────────────────────────
 
 function buildInitialSteps(): AgentStep[] {
@@ -614,6 +728,7 @@ export default function ChatPage() {
       | undefined) ?? "General";
   const jurisdiction = useChatComposerStore((s) => s.jurisdiction);
   const citationEnabled = useChatComposerStore((s) => s.citationEnabled);
+  const deepSearchEnabled = useChatComposerStore((s) => s.deepSearchEnabled);
   const attachments = useChatComposerStore((s) => s.attachments);
 
   // Ghost mode (local WebLLM)
@@ -671,6 +786,7 @@ export default function ChatPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [laws, setLaws] = useState<LawItem[]>([]);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
+  const [searchQueries, setSearchQueries] = useState<string[]>([]);
   const [isDone, setIsDone] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -725,6 +841,7 @@ export default function ChatPage() {
       userMode: t.userMode,
       assistantText: t.assistantText,
       sources: t.sources,
+      searchQueries: (t as { searchQueries?: string[] }).searchQueries ?? [],
       laws: t.laws,
       elapsedMs: t.elapsedMs,
       isGhost: t.isGhost ?? false,
@@ -836,6 +953,7 @@ export default function ChatPage() {
         jurisdiction: jurisdiction.toUpperCase(),
         mode: mode as "General" | "Compare" | "Draft",
         citationEnabled,
+        deepSearchEnabled,
         attachments: currentAttachmentsRef.current
           .filter((a) => a.status === "done" && a.extractedText)
           .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
@@ -846,6 +964,10 @@ export default function ChatPage() {
             case "classifying":
               updateStep("classifying", { status: "running" });
               setStatusMsg("Analyzing your question…");
+              break;
+
+            case "search_queries":
+              setSearchQueries(event.queries);
               break;
 
             case "intent": {
@@ -917,11 +1039,19 @@ export default function ChatPage() {
               );
               break;
 
-            case "search_results":
+            case "search_results": {
+              const newSrcs = event.sources ?? [];
+              if (newSrcs.length > 0) {
+                setSources((prev) => {
+                  const urls = new Set(prev.map((s) => s.url));
+                  return [...prev, ...newSrcs.filter((s) => !urls.has(s.url))];
+                });
+              }
               setStatusMsg(
                 `Found ${event.count} sources for "${event.query.slice(0, 50)}…"`,
               );
               break;
+            }
 
             case "sources_ranked":
               updateStep("searching", {
@@ -990,6 +1120,7 @@ export default function ChatPage() {
       mode,
       jurisdiction,
       citationEnabled,
+      deepSearchEnabled,
       attachments,
       updateStep,
     ],
@@ -1035,6 +1166,7 @@ export default function ChatPage() {
           jurisdiction: jurisdiction.toUpperCase(),
           mode,
           citationEnabled,
+          deepSearchEnabled,
           attachments: currentAttachmentsRef.current
             .filter((a) => a.status === "done" && a.extractedText)
             .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
@@ -1070,6 +1202,10 @@ export default function ChatPage() {
                 case "classifying":
                   updateStep("classifying", { status: "running" });
                   setStatusMsg("Analyzing your question…");
+                  break;
+
+                case "search_queries":
+                  setSearchQueries((event.queries as string[]) ?? []);
                   break;
 
                 case "intent": {
@@ -1142,11 +1278,19 @@ export default function ChatPage() {
                   );
                   break;
 
-                case "search_results":
+                case "search_results": {
+                  const newSrcs = (event.sources as Source[]) ?? [];
+                  if (newSrcs.length > 0) {
+                    setSources((prev) => {
+                      const urls = new Set(prev.map((s) => s.url));
+                      return [...prev, ...newSrcs.filter((s) => !urls.has(s.url))];
+                    });
+                  }
                   setStatusMsg(
                     `Found ${event.count} sources for "${(event.query as string).slice(0, 50)}…"`,
                   );
                   break;
+                }
 
                 case "sources_ranked":
                   updateStep("searching", {
@@ -1219,6 +1363,7 @@ export default function ChatPage() {
       mode,
       jurisdiction,
       citationEnabled,
+      deepSearchEnabled,
       attachments,
       updateStep,
     ],
@@ -1282,6 +1427,7 @@ export default function ChatPage() {
           jurisdiction: jurisdiction.toUpperCase(),
           mode,
           citationEnabled,
+          deepSearchEnabled,
           attachments: currentAttachmentsRef.current
             .filter((a) => a.status === "done" && a.extractedText)
             .map((a) => ({ filename: a.name, text: a.extractedText! })),
@@ -1449,6 +1595,10 @@ export default function ChatPage() {
         break;
       }
 
+      case "search_queries":
+        setSearchQueries((data.queries as string[]) ?? []);
+        break;
+
       case "searching": {
         updateStep("searching", {
           status: "running",
@@ -1463,12 +1613,19 @@ export default function ChatPage() {
         break;
       }
 
-      case "search_results":
-        // Intermediate — update status only
+      case "search_results": {
+        const newSrcs = (data.sources as Source[]) ?? [];
+        if (newSrcs.length > 0) {
+          setSources((prev) => {
+            const urls = new Set(prev.map((s) => s.url));
+            return [...prev, ...newSrcs.filter((s) => !urls.has(s.url))];
+          });
+        }
         setStatusMsg(
           `Found ${Number(data.count ?? 0)} sources for "${String(data.query ?? "").slice(0, 50)}…"`,
         );
         break;
+      }
 
       case "sources_ranked": {
         const total = Number(data.total ?? 0);
@@ -1553,6 +1710,7 @@ export default function ChatPage() {
             userMode: currentDisplayMode,
             assistantText: finalAnswer,
             sources,
+            searchQueries,
             laws,
             elapsedMs,
             isGhost: ghostEnabled,
@@ -1597,6 +1755,7 @@ export default function ChatPage() {
       setIsRunning(false);
       setError(null);
       setSources([]);
+      setSearchQueries([]);
       setLaws([]);
       setFollowUpQuestions([]);
       setElapsedMs(0);
@@ -1608,6 +1767,7 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       sources,
+      searchQueries,
       laws,
       elapsedMs,
       ghostEnabled,
@@ -1635,6 +1795,7 @@ export default function ChatPage() {
         userMode: currentDisplayMode,
         assistantText: answerRef.current,
         sources,
+        searchQueries,
         laws,
         elapsedMs,
         isGhost: ghostEnabled,
@@ -1775,6 +1936,16 @@ export default function ChatPage() {
                 </div>
               </div>
 
+              {/* Sources panel — Perplexity style, above the answer */}
+              {(turn.sources.length > 0 || (turn.searchQueries ?? []).length > 0) && (
+                <PerplexitySourcesPanel
+                  queries={turn.searchQueries ?? []}
+                  sources={turn.sources}
+                  isSearching={false}
+                  highlightedSource={null}
+                />
+              )}
+
               {/* Assistant answer */}
               <div className="bg-card rounded-lg border border-border overflow-hidden">
                 <div className="px-5 py-3 border-b border-border flex items-center gap-2.5 bg-secondary/40">
@@ -1792,50 +1963,6 @@ export default function ChatPage() {
                   {renderMarkdown(turn.assistantText)}
                 </div>
               </div>
-
-              {/* Sources for this turn */}
-              {turn.sources.length > 0 && (
-                <div className="bg-card rounded-lg border border-border overflow-hidden">
-                  <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                    <BookOpen size={12} className="text-muted-foreground/60" />
-                    <span className="text-sm font-medium text-foreground">
-                      Sources
-                    </span>
-                    <span className="text-xs text-muted-foreground/50 ml-auto">
-                      {turn.sources.length} retrieved
-                    </span>
-                  </div>
-                  <div className="px-4 py-3 space-y-1.5">
-                    {turn.sources.map((s, i) => (
-                      <a
-                        key={i}
-                        href={s.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 py-1.5 rounded px-1.5 -mx-1.5 hover:bg-secondary/50 group"
-                      >
-                        <span className="text-[10px] w-4 shrink-0 tabular-nums font-medium text-muted-foreground/40">
-                          {i + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs truncate text-foreground/75 group-hover:text-foreground">
-                            {s.title}
-                          </div>
-                          {s.domain && (
-                            <div className="text-[10px] text-muted-foreground/50">
-                              {s.domain}
-                            </div>
-                          )}
-                        </div>
-                        <ExternalLink
-                          size={10}
-                          className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/60"
-                        />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Divider between turns */}
               <div className="border-t border-dashed border-border/50 my-1" />
@@ -2089,6 +2216,17 @@ export default function ChatPage() {
           </div>
           )}
 
+          {/* ── Perplexity Sources Panel — appears as results arrive, stays above the answer ── */}
+          {(searchQueries.length > 0 || sources.length > 0) && (
+            <PerplexitySourcesPanel
+              queries={searchQueries}
+              sources={sources}
+              isSearching={isRunning && !isDone}
+              onCiteClick={handleCiteClick}
+              highlightedSource={highlightedSource}
+            />
+          )}
+
           {/* ── Streaming answer ── */}
           {answerText && (
             <div className="bg-card rounded-lg border border-border overflow-hidden">
@@ -2128,59 +2266,6 @@ export default function ChatPage() {
                 {!isDone && (
                   <span className="inline-block w-0.5 h-4 bg-foreground/50 animate-pulse ml-0.5 align-text-bottom" />
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Sources ── */}
-          {isDone && sources.length > 0 && (
-            <div className="bg-card rounded-lg border border-border overflow-hidden">
-              <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                <BookOpen size={12} className="text-muted-foreground/60" />
-                <span className="text-sm font-medium text-foreground">
-                  Sources
-                </span>
-                <span className="text-xs text-muted-foreground/50 ml-auto">
-                  {sources.length} retrieved
-                </span>
-              </div>
-              <div className="px-4 py-3 space-y-1.5">
-                {sources.map((s, i) => (
-                  <a
-                    key={i}
-                    id={`source-${i + 1}`}
-                    href={s.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-2 py-1.5 rounded px-1.5 -mx-1.5 transition-colors group ${
-                      highlightedSource === i + 1
-                        ? "bg-indigo-50 border border-indigo-200"
-                        : "hover:bg-secondary/50"
-                    }`}
-                  >
-                    <span
-                      className={`text-[10px] w-4 shrink-0 tabular-nums font-medium ${highlightedSource === i + 1 ? "text-indigo-600" : "text-muted-foreground/40"}`}
-                    >
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={`text-xs truncate transition-colors ${highlightedSource === i + 1 ? "text-indigo-700 font-medium" : "text-foreground/75 group-hover:text-foreground"}`}
-                      >
-                        {s.title}
-                      </div>
-                      {s.domain && (
-                        <div className="text-[10px] text-muted-foreground/50">
-                          {s.domain}
-                        </div>
-                      )}
-                    </div>
-                    <ExternalLink
-                      size={10}
-                      className={`shrink-0 transition-colors ${highlightedSource === i + 1 ? "text-indigo-400" : "text-muted-foreground/30 group-hover:text-muted-foreground/60"}`}
-                    />
-                  </a>
-                ))}
               </div>
             </div>
           )}
