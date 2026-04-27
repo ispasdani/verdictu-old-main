@@ -7,6 +7,7 @@ import {
   Cpu,
   AlertTriangle,
   CheckCircle2,
+  Download,
   Loader2,
   Zap,
   TriangleAlert,
@@ -396,6 +397,8 @@ export function GhostModeToggle() {
   const setSelectedModelId = useGhostModeStore((s) => s.setSelectedModelId);
   const { loadModel } = useGhostLLM();
 
+  const selectedModel = findGhostModel(selectedModelId) ?? GHOST_MODELS[0];
+
   const handleRetry = React.useCallback(() => {
     loadModel(selectedModelId);
   }, [loadModel, selectedModelId]);
@@ -406,7 +409,7 @@ export function GhostModeToggle() {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* ── Loading bar (Ghost local only, hidden when Ghost Open is active) ── */}
+      {/* ── Loading bar / error (Ghost local only) ── */}
       {enabled && (modelStatus === "loading" || modelStatus === "error") && (
         <div className="px-3">
           <GhostLoadingBar
@@ -417,7 +420,7 @@ export function GhostModeToggle() {
       )}
 
       {/* ── Row 1: Ghost (local) ── */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 flex-wrap">
         <button
           type="button"
           onClick={() => setEnabled(!enabled)}
@@ -434,6 +437,19 @@ export function GhostModeToggle() {
         </button>
 
         {enabled && <GhostModelSelector />}
+
+        {/* Download button — only shown when model not yet loaded */}
+        {enabled && modelStatus === "idle" && (
+          <button
+            type="button"
+            onClick={() => loadModel(selectedModelId)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-foreground/25 bg-foreground/8 hover:bg-foreground/15 transition-colors text-xs font-medium text-foreground/80 shrink-0"
+          >
+            <Download size={11} />
+            <span>Load</span>
+            <span className="text-muted-foreground/55 text-[10px]">{selectedModel.size}</span>
+          </button>
+        )}
       </div>
 
       {/* ── Row 2: Ghost Open (OpenRouter) ── */}

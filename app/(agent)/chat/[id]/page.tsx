@@ -907,6 +907,11 @@ export default function ChatPage() {
       setStatusMsg(`Loading ${ghostModel?.name ?? "local model"}…`);
 
       if (ghostModelStatus !== "ready" || !ghostIsReady) {
+        if (useGhostModeStore.getState().modelStatus === "idle") {
+          throw new Error(
+            "Ghost model not downloaded. Click the Load button in the Ghost controls to download the model first.",
+          );
+        }
         setStatusMsg("Waiting for model to finish loading…");
         await new Promise<void>((resolve, reject) => {
           const check = setInterval(() => {
@@ -914,11 +919,13 @@ export default function ChatPage() {
             if (status === "ready") {
               clearInterval(check);
               resolve();
-            } else if (status === "error") {
+            } else if (status === "error" || status === "idle") {
               clearInterval(check);
               reject(
                 new Error(
-                  "Model failed to load. WebGPU required (Chrome/Edge 113+).",
+                  status === "idle"
+                    ? "Ghost model not downloaded. Click the Load button in the Ghost controls to download the model first."
+                    : "Model failed to load. WebGPU required (Chrome/Edge 113+).",
                 ),
               );
             }
@@ -2216,13 +2223,22 @@ export default function ChatPage() {
           )}
 
           {/* ── Ghost mode: model not ready warning ── */}
-          {ghostEnabled && ghostModelStatus === "loading" && !error && (
+          {ghostEnabled && (ghostModelStatus === "idle" || ghostModelStatus === "loading") && !error && (
             <div className="flex items-start gap-2 px-4 py-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
-              <Ghost size={13} className="shrink-0 mt-0.5 animate-pulse" />
+              <Ghost size={13} className={`shrink-0 mt-0.5 ${ghostModelStatus === "loading" ? "animate-pulse" : ""}`} />
               <div>
-                <span className="font-semibold">Downloading model…</span> This
-                may take a moment the first time. The model is cached locally
-                after the first download.
+                {ghostModelStatus === "idle" ? (
+                  <>
+                    <span className="font-semibold">Model not downloaded.</span>{" "}
+                    Click <span className="font-semibold">Load</span> in the Ghost controls to download the model before chatting.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">Downloading model…</span> This
+                    may take a moment the first time. The model is cached locally
+                    after the first download.
+                  </>
+                )}
               </div>
             </div>
           )}

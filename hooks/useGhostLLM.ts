@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { useGhostModeStore } from "@/store/ghostModeStore";
 import { findGhostModel, getSuggestedSmallerModel } from "@/lib/ghost/models";
 import { installOPFSCacheShim, clearOPFSCache } from "@/lib/ghost/opfsCache";
@@ -57,8 +57,6 @@ export type GhostStreamOptions = {
 };
 
 export function useGhostLLM() {
-  const enabled = useGhostModeStore((s) => s.enabled);
-  const selectedModelId = useGhostModeStore((s) => s.selectedModelId);
   const modelStatus = useGhostModeStore((s) => s.modelStatus);
   const setModelStatus = useGhostModeStore((s) => s.setModelStatus);
   const setLoadProgress = useGhostModeStore((s) => s.setLoadProgress);
@@ -190,13 +188,7 @@ export function useGhostLLM() {
     }
   }, [setModelStatus, setLoadProgress, setSuggestedModelId]);
 
-  // Auto-load when ghost mode is enabled
-  useEffect(() => {
-    if (!enabled) return;
-    const model = findGhostModel(selectedModelId);
-    if (!model) return;
-    loadModel(selectedModelId);
-  }, [enabled, selectedModelId, loadModel]);
+  // No auto-load — user must explicitly click "Load" in the Ghost controls.
 
   const generate = useCallback(
     async ({ messages, onToken, onDone, onError, maxTokens = 2000 }: GhostStreamOptions) => {

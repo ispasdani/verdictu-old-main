@@ -75,7 +75,7 @@ export const GHOST_MODELS: GhostModel[] = [
     downloadSizeMB: 2560,
     vram: "~4GB",
     description: "Strongest browser-compatible reasoning model. Thinking mode for deep legal analysis.",
-    tags: ["powerful", "reasoning", "defense"],
+    tags: ["powerful", "reasoning", "recommended", "defense"],
   },
   {
     id: "gemma-2-2b-it-q4f16_1-MLC",
@@ -199,9 +199,9 @@ export const GHOST_MODELS: GhostModel[] = [
   },
 ];
 
-/** Default: Qwen3 1.7B — thinking mode, ~1GB download, loads reliably in-browser */
+/** Default: Qwen3 4B — thinking mode, ~2.5GB download, best reasoning for legal analysis */
 export const DEFAULT_GHOST_MODEL = GHOST_MODELS.find(
-  (m) => m.id === "Qwen3-1.7B-q4f16_1-MLC",
+  (m) => m.id === "Qwen3-4B-q4f16_1-MLC",
 )!;
 
 export function findGhostModel(id: string): GhostModel | undefined {
