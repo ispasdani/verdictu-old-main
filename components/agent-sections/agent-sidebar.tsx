@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   MessageSquare,
-  Scale,
   Workflow,
   HelpCircle,
   Settings,
   SquarePen,
+  ShieldCheck,
 } from "lucide-react";
 import { ImportChatButton } from "@/components/chat/ImportChatButton";
+import { GhostModeToggle } from "@/components/ghost/GhostModeToggle";
 
 import {
   Sidebar,
@@ -26,11 +27,10 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
-// ─── Mock data ───────────────────────────────────────────────────────────────
+// ─── Nav items ───────────────────────────────────────────────────────────────
 
 const FEATURES = [
-  { id: "chat", label: "Chat", icon: MessageSquare, href: "/simple-chat/new" },
-  { id: "legal", label: "Legal AI Agent", icon: Scale, href: "/chat/new" },
+  { id: "chat", label: "Chat", icon: MessageSquare, href: "/chat/new" },
   { id: "workflows", label: "Workflows", icon: Workflow, href: "/workflows" },
 ];
 
@@ -69,7 +69,7 @@ export function AgentSidebar() {
             </span>
           </div>
           <Link
-            href="/simple-chat/new"
+            href="/chat/new"
             className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground/50 hover:text-sidebar-foreground"
             title="New chat"
           >
@@ -99,7 +99,10 @@ export function AgentSidebar() {
             <SidebarMenu>
               {FEATURES.map((feature) => {
                 const Icon = feature.icon;
-                const isActive = pathname === feature.href;
+                const isActive =
+                  feature.id === "chat"
+                    ? pathname.startsWith("/chat")
+                    : pathname === feature.href;
                 return (
                   <SidebarMenuItem key={feature.id}>
                     <SidebarMenuButton
@@ -123,6 +126,19 @@ export function AgentSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* ── Privacy ── */}
+        <SidebarGroup className="pt-2">
+          <SidebarGroupLabel className="font-semibold uppercase tracking-widest text-sidebar-foreground flex items-center gap-1.5">
+            <ShieldCheck size={11} className="text-sidebar-foreground/60" />
+            Privacy
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-1">
+              <GhostModeToggle />
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* ── History ── */}
         <SidebarGroup className="pt-2">
           <SidebarGroupLabel className="font-semibold uppercase tracking-widest text-sidebar-foreground">
@@ -131,9 +147,7 @@ export function AgentSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {MOCK_CHATS.map((chat) => {
-                const isActive =
-                  pathname === `/chat/${chat.id}` ||
-                  pathname === `/simple-chat/${chat.id}`;
+                const isActive = pathname === `/chat/${chat.id}`;
                 return (
                   <SidebarMenuItem key={chat.id}>
                     <SidebarMenuButton

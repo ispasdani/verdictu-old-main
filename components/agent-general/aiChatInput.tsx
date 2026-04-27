@@ -17,6 +17,7 @@ import {
   HardDrive,
   Search,
   Scale,
+  MessageSquare,
 } from "lucide-react";
 import {
   useChatComposerStore,
@@ -24,8 +25,7 @@ import {
   type AttachmentItem,
 } from "@/store/chatComposerStore";
 import { useChatStorageStore } from "@/store/chatStorageStore";
-import { GhostModeToggle } from "@/components/ghost/GhostModeToggle";
-import { useGhostModeStore } from "@/store/ghostModeStore";
+import { useChatModeStore } from "@/store/chatModeStore";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -79,23 +79,14 @@ function validateFile(file: File): string | null {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface AIChatInputProps {
-  /** If provided, called instead of navigating — used for follow-up messages inside an existing chat. */
   onSend?: (text: string, attachments: AttachmentItem[]) => void;
-  /** Disable the send button externally (e.g. while the agent is running). */
   disabled?: boolean;
-  /** Show the jurisdiction selector (default true). */
-  showJurisdiction?: boolean;
-  /** Show the citations toggle (default true). */
-  showCitations?: boolean;
-  /** Base path for new chat navigation, e.g. "/chat/" or "/simple-chat/" (default "/chat/"). */
   newChatBasePath?: string;
 }
 
 export default function AIChatInput({
   onSend,
   disabled: externalDisabled,
-  showJurisdiction = true,
-  showCitations = true,
   newChatBasePath = "/chat/",
 }: AIChatInputProps = {}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -112,11 +103,9 @@ export default function AIChatInput({
   const storageMode = useChatStorageStore((s) => s.storageMode);
   const setStorageMode = useChatStorageStore((s) => s.setStorageMode);
 
-  const ghostEnabled = useGhostModeStore((s) => s.enabled);
-  const ghostOpenEnabled = useGhostModeStore((s) => s.ghostOpenEnabled);
-  const setGhostEnabled = useGhostModeStore((s) => s.setEnabled);
-  const setGhostOpenEnabled = useGhostModeStore((s) => s.setGhostOpenEnabled);
-  const isGeneralMode = !ghostEnabled && !ghostOpenEnabled;
+  const chatMode = useChatModeStore((s) => s.chatMode);
+  const setChatMode = useChatModeStore((s) => s.setChatMode);
+  const isLegalMode = chatMode === "legal";
 
   const setText = useChatComposerStore((s) => s.setText);
   const setGlobalError = useChatComposerStore((s) => s.setGlobalError);
@@ -138,10 +127,9 @@ export default function AIChatInput({
     [attachments],
   );
   const hasJurisdiction = jurisdiction !== "";
+  const needsJurisdiction = isLegalMode && !hasJurisdiction;
   const canSend =
-    !hasAnyUploading &&
-    (!showJurisdiction || hasJurisdiction) &&
-    !externalDisabled;
+    !hasAnyUploading && !needsJurisdiction && !externalDisabled;
 
   // ── File handling ───────────────────────────────────────────────────────────
 
@@ -280,7 +268,7 @@ export default function AIChatInput({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full w-full mx-auto px-4 my-20">
+    <div className="w-full mx-auto px-4 my-20">
       <input
         ref={fileInputRef}
         type="file"
@@ -321,7 +309,7 @@ export default function AIChatInput({
               />
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
-                  <span className="max-w-[220px] truncate text-foreground/70">
+                  <span className="max-w-55 truncate text-foreground/70">
                     {att.name}
                   </span>
                   {att.status === "uploading" && (
@@ -443,7 +431,11 @@ export default function AIChatInput({
           />
           <textarea
             className="w-full bg-transparent border-none outline-none resize-none text-[15px] text-foreground placeholder:text-muted-foreground/40 min-h-20"
-            placeholder="Ask a question, compare documents, request a draft…"
+            placeholder={
+              isLegalMode
+                ? "Ask a legal question, compare documents, request a draft…"
+                : "Ask me anything…"
+            }
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -472,37 +464,39 @@ export default function AIChatInput({
               </span>
             </button>
 
-            {/* DeepSearch toggle */}
-            <button
-              type="button"
-              onClick={() => setDeepSearchEnabled(!deepSearchEnabled)}
-              title={
-                deepSearchEnabled
-                  ? "DeepSearch on — click to disable web search"
-                  : "DeepSearch off — click to enable web search"
-              }
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md transition-colors text-xs font-medium ${
-                deepSearchEnabled
-                  ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
-                  : "bg-transparent border-border text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              <Search
-                size={13}
-                className={
+            {/* DeepSearch toggle — legal mode only */}
+            {isLegalMode && (
+              <button
+                type="button"
+                onClick={() => setDeepSearchEnabled(!deepSearchEnabled)}
+                title={
                   deepSearchEnabled
-                    ? "text-indigo-600"
-                    : "text-muted-foreground"
+                    ? "DeepSearch on — click to disable web search"
+                    : "DeepSearch off — click to enable web search"
                 }
-              />
-              <span>DeepSearch</span>
-              {deepSearchEnabled && (
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-              )}
-            </button>
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md transition-colors text-xs font-medium ${
+                  deepSearchEnabled
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                    : "bg-transparent border-border text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                <Search
+                  size={13}
+                  className={
+                    deepSearchEnabled
+                      ? "text-indigo-600"
+                      : "text-muted-foreground"
+                  }
+                />
+                <span>DeepSearch</span>
+                {deepSearchEnabled && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                )}
+              </button>
+            )}
 
-            {/* Jurisdiction */}
-            {showJurisdiction && (
+            {/* Jurisdiction — legal mode only */}
+            {isLegalMode && (
               <div
                 className={`relative flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md hover:bg-accent bg-transparent transition-colors ${
                   !hasJurisdiction
@@ -553,28 +547,35 @@ export default function AIChatInput({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* General mode button */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!isGeneralMode) {
-                  setGhostEnabled(false);
-                  setGhostOpenEnabled(false);
-                }
-              }}
-              title="General mode — Legal AI with DeepSearch"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all text-xs font-medium shrink-0 ${
-                isGeneralMode
-                  ? "bg-foreground/10 border-foreground/20 text-foreground"
-                  : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground/70"
-              }`}
-            >
-              <Scale size={13} />
-              <span>General</span>
-            </button>
-
-            {/* Ghost Mode */}
-            <GhostModeToggle />
+            {/* Mode toggle: General | Legal */}
+            <div className="flex items-center rounded-md border border-border overflow-hidden text-xs">
+              <button
+                type="button"
+                onClick={() => setChatMode("general")}
+                className={`flex items-center gap-1 px-2.5 py-1.5 transition-colors font-medium ${
+                  !isLegalMode
+                    ? "bg-foreground text-card"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="General mode — open-ended assistant"
+              >
+                <MessageSquare size={11} />
+                <span>General</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setChatMode("legal")}
+                className={`flex items-center gap-1 px-2.5 py-1.5 transition-colors font-medium ${
+                  isLegalMode
+                    ? "bg-foreground text-card"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Legal mode — full legal pipeline with jurisdiction, law identification, and deep search"
+              >
+                <Scale size={11} />
+                <span>Legal</span>
+              </button>
+            </div>
 
             {/* Storage mode pill */}
             <div className="flex items-center rounded-md border border-border overflow-hidden text-xs">
@@ -606,8 +607,8 @@ export default function AIChatInput({
               </button>
             </div>
 
-            {/* Citations toggle */}
-            {showCitations && (
+            {/* Citations toggle — legal mode only */}
+            {isLegalMode && (
               <button
                 type="button"
                 className="flex items-center gap-2"
@@ -636,7 +637,7 @@ export default function AIChatInput({
               title={
                 hasAnyUploading
                   ? "Please wait for uploads to finish"
-                  : showJurisdiction && !hasJurisdiction
+                  : needsJurisdiction
                     ? "Select a jurisdiction before sending"
                     : "Send"
               }

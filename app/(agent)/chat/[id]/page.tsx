@@ -5,6 +5,7 @@ import {
   useChatComposerStore,
   type AttachmentItem,
 } from "@/store/chatComposerStore";
+import { useChatModeStore } from "@/store/chatModeStore";
 import {
   CheckCircle2,
   ChevronDown,
@@ -29,6 +30,7 @@ import {
   Cloud as CloudIcon,
   HardDrive as HardDriveIcon,
   Download as DownloadIcon,
+  MessageSquare,
 } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AIChatInput from "@/components/agent-general/aiChatInput";
@@ -747,6 +749,12 @@ export default function ChatPage() {
   const ghostOpenModelId = useGhostModeStore((s) => s.selectedApiModelId);
   const ghostOpenModel = findGhostApiModel(ghostOpenModelId);
 
+  // Chat mode (general | legal) — drives which pipeline and UI panels to show
+  const chatMode = useChatModeStore((s) => s.chatMode);
+  const isLegalMode = chatMode === "legal";
+  const isGhostActive = ghostEnabled || ghostOpenEnabled;
+  const showPipeline = isLegalMode || isGhostActive;
+
   const jLabel = jurisdictionLabel(jurisdiction);
 
   // ── Storage mode + import ─────────────────────────────────────────────────
@@ -1126,6 +1134,72 @@ export default function ChatPage() {
     ],
   );
 
+  // ── General chat runner (SSE → /api/simple-chat) ────────────────────────────
+
+  const runSimpleChat = useCallback(
+    async (ticker: ReturnType<typeof setInterval>) => {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const res = await fetch("/api/simple-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: currentTextRef.current,
+            conversationHistory: historyRef.current,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              switch (event.step) {
+                case "delta":
+                  answerRef.current += event.data.text as string;
+                  setAnswerText(answerRef.current);
+                  break;
+                case "done":
+                  setIsDone(true);
+                  break;
+                case "error":
+                  setError((event.data.message as string) ?? "Unknown error");
+                  break;
+              }
+            } catch {
+              // malformed chunk — skip
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Connection failed");
+      }
+
+      clearInterval(ticker);
+      setIsRunning(false);
+      setElapsedMs(Date.now() - startTimeRef.current);
+    },
+    // refs are stable; no deps needed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   // ── Ghost Open runner (SSE → /api/ghost-api) ────────────────────────────────
 
   const runGhostOpen = useCallback(
@@ -1409,8 +1483,19 @@ export default function ChatPage() {
         clearInterval(ticker);
         setIsRunning(false);
       });
-      // Abort the SSE fetch so a React StrictMode double-invoke or a
-      // hot-reload doesn't leave a zombie stream writing to answerRef.
+      return () => {
+        clearInterval(ticker);
+        abortControllerRef.current?.abort();
+      };
+    }
+
+    // General mode — plain streaming chat, no legal pipeline
+    if (chatMode === "general") {
+      runSimpleChat(ticker).catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+        clearInterval(ticker);
+        setIsRunning(false);
+      });
       return () => {
         clearInterval(ticker);
         abortControllerRef.current?.abort();
@@ -1838,12 +1923,25 @@ export default function ChatPage() {
         backgroundSize: "20px 20px",
       }}
     >
-      {/* ── Top bar: sidebar trigger + storage mode + export ── */}
+      {/* ── Top bar: sidebar trigger + badges + export ── */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 h-12">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 
-        {/* Storage mode indicator + download button */}
         <div className="flex items-center gap-2">
+          {/* Privacy badge — only visible when a Ghost mode is active */}
+          {ghostEnabled && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border border-foreground/20 bg-foreground text-card">
+              <Ghost size={10} />
+              Ghost · {ghostModel?.shortName ?? "Local"}
+            </span>
+          )}
+          {ghostOpenEnabled && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border border-amber-200 bg-amber-50 text-amber-700">
+              <Ghost size={10} />
+              Ghost Open · {ghostOpenModel?.shortName ?? "Cloud"}
+            </span>
+          )}
+
           {/* Storage badge */}
           <span
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
@@ -1863,7 +1961,7 @@ export default function ChatPage() {
             )}
           </span>
 
-          {/* Download button — visible once there's any content to export */}
+          {/* Download button — visible once there's content to export */}
           {(completedTurns.length > 0 || (isDone && answerText)) && (
             <button
               type="button"
@@ -1895,13 +1993,17 @@ export default function ChatPage() {
                       {turn.userText}
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-3">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
-                        <Globe size={9} />
-                        {jurisdictionLabel(turn.userJurisdiction)}
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
-                        {turn.userMode} mode
-                      </span>
+                      {isLegalMode && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
+                          <Globe size={9} />
+                          {jurisdictionLabel(turn.userJurisdiction)}
+                        </span>
+                      )}
+                      {isLegalMode && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
+                          {turn.userMode} mode
+                        </span>
+                      )}
                       {turn.isGhost ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-foreground border border-foreground/20 text-xs text-card">
                           <Ghost size={9} />
@@ -1953,7 +2055,7 @@ export default function ChatPage() {
                     <Gavel size={10} className="text-foreground/50" />
                   </div>
                   <span className="text-sm font-medium text-foreground">
-                    {turn.isGhost ? "Response" : "Legal Analysis"}
+                    {turn.isGhost || turn.isGhostOpen || !isLegalMode ? "Response" : "Legal Analysis"}
                   </span>
                   <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">
                     {(turn.elapsedMs / 1000).toFixed(1)}s
@@ -1969,87 +2071,95 @@ export default function ChatPage() {
             </React.Fragment>
           ))}
 
-          {/* ── Empty state — shown when no question yet and agent hasn't run ── */}
+          {/* ── Empty state ── */}
           {!isRunning && !currentDisplayText && completedTurns.length === 0 && (
             <div className="flex flex-col items-center pt-16 pb-8">
               <div className="w-14 h-14 rounded-xl bg-secondary border border-border flex items-center justify-center mb-5">
-                <Scale size={22} className="text-foreground/40" />
+                {isLegalMode ? (
+                  <Scale size={22} className="text-foreground/40" />
+                ) : (
+                  <MessageSquare size={22} className="text-foreground/40" />
+                )}
               </div>
               <h2 className="text-base font-semibold text-foreground/70 mb-1.5">
-                Verdictu Legal AI
+                {isLegalMode ? "Verdictu Legal AI" : "Verdictu Chat"}
               </h2>
               <p className="text-sm text-muted-foreground/50 mb-8 text-center max-w-xs">
-                Ask a question or pick a mode below to get started
+                {isLegalMode
+                  ? "Ask a legal question or pick a mode below to get started"
+                  : "Ask me anything — writing, research, coding, or switch to Legal mode for full legal analysis"}
               </p>
-              <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
-                {(
-                  [
-                    {
-                      icon: Search,
-                      bg: "bg-indigo-50",
-                      color: "text-indigo-500",
-                      title: "Analyze a regulation",
-                      desc: "Ask about GDPR, AI Act, DSA and national laws",
-                      hint: "Is this GDPR-compliant?",
-                      hintColor: "text-indigo-400",
-                    },
-                    {
-                      icon: BookOpen,
-                      bg: "bg-emerald-50",
-                      color: "text-emerald-500",
-                      title: "Research case law",
-                      desc: "Deep search across legal databases",
-                      hint: "Find relevant precedents for…",
-                      hintColor: "text-emerald-500",
-                    },
-                    {
-                      icon: FileText,
-                      bg: "bg-amber-50",
-                      color: "text-amber-500",
-                      title: "Draft a document",
-                      desc: "Memos, responses, compliance reports",
-                      hint: "Draft a DPA for…",
-                      hintColor: "text-amber-500",
-                    },
-                    {
-                      icon: Ghost,
-                      bg: "bg-foreground/5",
-                      color: "text-foreground/50",
-                      title: "Ghost Mode",
-                      desc: "Private, offline AI — no data retention",
-                      hint: "Enable in the toolbar below",
-                      hintColor: "text-foreground/30",
-                    },
-                  ] as const
-                ).map((card, i) => {
-                  const CardIcon = card.icon;
-                  return (
-                    <div
-                      key={i}
-                      className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-6 h-6 rounded ${card.bg} flex items-center justify-center shrink-0`}
-                        >
-                          <CardIcon size={12} className={card.color} />
-                        </div>
-                        <span className="text-sm font-medium text-foreground/80">
-                          {card.title}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground/55 leading-relaxed">
-                        {card.desc}
-                      </p>
-                      <p
-                        className={`text-xs font-mono truncate ${card.hintColor}`}
+              {isLegalMode && (
+                <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
+                  {(
+                    [
+                      {
+                        icon: Search,
+                        bg: "bg-indigo-50",
+                        color: "text-indigo-500",
+                        title: "Analyze a regulation",
+                        desc: "Ask about GDPR, AI Act, DSA and national laws",
+                        hint: "Is this GDPR-compliant?",
+                        hintColor: "text-indigo-400",
+                      },
+                      {
+                        icon: BookOpen,
+                        bg: "bg-emerald-50",
+                        color: "text-emerald-500",
+                        title: "Research case law",
+                        desc: "Deep search across legal databases",
+                        hint: "Find relevant precedents for…",
+                        hintColor: "text-emerald-500",
+                      },
+                      {
+                        icon: FileText,
+                        bg: "bg-amber-50",
+                        color: "text-amber-500",
+                        title: "Draft a document",
+                        desc: "Memos, responses, compliance reports",
+                        hint: "Draft a DPA for…",
+                        hintColor: "text-amber-500",
+                      },
+                      {
+                        icon: Ghost,
+                        bg: "bg-foreground/5",
+                        color: "text-foreground/50",
+                        title: "Ghost Mode",
+                        desc: "Private AI — enable in the sidebar",
+                        hint: "No data leaves your device",
+                        hintColor: "text-foreground/30",
+                      },
+                    ] as const
+                  ).map((card, i) => {
+                    const CardIcon = card.icon;
+                    return (
+                      <div
+                        key={i}
+                        className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2"
                       >
-                        {card.hint}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-6 h-6 rounded ${card.bg} flex items-center justify-center shrink-0`}
+                          >
+                            <CardIcon size={12} className={card.color} />
+                          </div>
+                          <span className="text-sm font-medium text-foreground/80">
+                            {card.title}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground/55 leading-relaxed">
+                          {card.desc}
+                        </p>
+                        <p
+                          className={`text-xs font-mono truncate ${card.hintColor}`}
+                        >
+                          {card.hint}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -2065,13 +2175,17 @@ export default function ChatPage() {
                   {currentDisplayText}
                 </p>
                 <div className="flex flex-wrap gap-1.5 mt-3">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
-                    <Globe size={9} />
-                    {jurisdictionLabel(currentDisplayJurisdiction)}
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
-                    {currentDisplayMode} mode
-                  </span>
+                  {isLegalMode && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
+                      <Globe size={9} />
+                      {jurisdictionLabel(currentDisplayJurisdiction)}
+                    </span>
+                  )}
+                  {isLegalMode && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary border border-border text-xs text-muted-foreground">
+                      {currentDisplayMode} mode
+                    </span>
+                  )}
                   {ghostEnabled ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-foreground border border-foreground/20 text-xs text-card">
                       <Ghost size={9} />
@@ -2124,8 +2238,8 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* ── Agent steps card — only while running ── */}
-          {isRunning && !isDone && (
+          {/* ── Agent steps card — legal mode and Ghost modes only ── */}
+          {showPipeline && isRunning && !isDone && (
           <div className="bg-card rounded-lg border border-border overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -2235,7 +2349,7 @@ export default function ChatPage() {
                   <Gavel size={10} className="text-foreground/50" />
                 </div>
                 <span className="text-sm font-medium text-foreground">
-                  {ghostEnabled ? "Response" : "Legal Analysis"}
+                  {isLegalMode && !isGhostActive ? "Legal Analysis" : "Response"}
                 </span>
                 {!isDone && (
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse ml-1" />
