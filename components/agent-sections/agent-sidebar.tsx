@@ -8,10 +8,8 @@ import {
   HelpCircle,
   Settings,
   SquarePen,
-  ShieldCheck,
 } from "lucide-react";
 import { ImportChatButton } from "@/components/chat/ImportChatButton";
-import { GhostModeToggle } from "@/components/ghost/GhostModeToggle";
 
 import {
   Sidebar,
@@ -123,19 +121,6 @@ export function AgentSidebar() {
                 );
               })}
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* ── Privacy ── */}
-        <SidebarGroup className="pt-2">
-          <SidebarGroupLabel className="font-semibold uppercase tracking-widest text-sidebar-foreground flex items-center gap-1.5">
-            <ShieldCheck size={11} className="text-sidebar-foreground/60" />
-            Privacy
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <div className="px-2 py-1">
-              <GhostModeToggle />
-            </div>
           </SidebarGroupContent>
         </SidebarGroup>
 

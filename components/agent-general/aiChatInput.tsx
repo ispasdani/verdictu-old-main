@@ -19,6 +19,7 @@ import {
   Scale,
   MessageSquare,
 } from "lucide-react";
+import { GhostModeToggle } from "@/components/ghost/GhostModeToggle";
 import {
   useChatComposerStore,
   type AttachmentAction,
@@ -646,6 +647,11 @@ export default function AIChatInput({
               <ArrowUp size={16} strokeWidth={2.5} />
             </button>
           </div>
+        </div>
+
+        {/* Privacy / Ghost mode */}
+        <div className="mt-3 pt-3 border-t border-border">
+          <GhostModeToggle />
         </div>
       </div>
     </div>
