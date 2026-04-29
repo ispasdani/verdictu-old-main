@@ -409,18 +409,8 @@ export function GhostModeToggle() {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* ── Loading bar / error (Ghost local only) ── */}
-      {enabled && (modelStatus === "loading" || modelStatus === "error") && (
-        <div className="px-3">
-          <GhostLoadingBar
-            onRetry={modelStatus === "error" ? handleRetry : undefined}
-            onSwitchModel={handleSwitchModel}
-          />
-        </div>
-      )}
-
-      {/* ── Row 1: Ghost (local) ── */}
-      <div className="flex items-center gap-2.5 flex-wrap">
+      {/* ── Both toggle buttons inline ── */}
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => setEnabled(!enabled)}
@@ -436,24 +426,6 @@ export function GhostModeToggle() {
           <StatusDot />
         </button>
 
-        {enabled && <GhostModelSelector />}
-
-        {/* Download button — only shown when model not yet loaded */}
-        {enabled && modelStatus === "idle" && (
-          <button
-            type="button"
-            onClick={() => loadModel(selectedModelId)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-foreground/25 bg-foreground/8 hover:bg-foreground/15 transition-colors text-xs font-medium text-foreground/80 shrink-0"
-          >
-            <Download size={11} />
-            <span>Load</span>
-            <span className="text-muted-foreground/55 text-[10px]">{selectedModel.size}</span>
-          </button>
-        )}
-      </div>
-
-      {/* ── Row 2: Ghost Open (OpenRouter) ── */}
-      <div className="flex items-center gap-2.5">
         <button
           type="button"
           onClick={() => setGhostOpenEnabled(!ghostOpenEnabled)}
@@ -468,15 +440,44 @@ export function GhostModeToggle() {
           <span>Ghost Open</span>
           {ghostOpenEnabled && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
         </button>
-
-        {ghostOpenEnabled && <GhostOpenModelSelector />}
-        {ghostOpenEnabled && <GhostCredits variant="badge" />}
       </div>
 
-      {/* ── Credit widget when Ghost Open is active ── */}
+      {/* ── Ghost (local) options ── */}
+      {enabled && (
+        <div className="flex flex-col gap-2">
+          {(modelStatus === "loading" || modelStatus === "error") && (
+            <GhostLoadingBar
+              onRetry={modelStatus === "error" ? handleRetry : undefined}
+              onSwitchModel={handleSwitchModel}
+            />
+          )}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <GhostModelSelector />
+            {modelStatus === "idle" && (
+              <button
+                type="button"
+                onClick={() => loadModel(selectedModelId)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-foreground/25 bg-foreground/8 hover:bg-foreground/15 transition-colors text-xs font-medium text-foreground/80 shrink-0"
+              >
+                <Download size={11} />
+                <span>Load</span>
+                <span className="text-muted-foreground/55 text-[10px]">{selectedModel.size}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Ghost Open (OpenRouter) options ── */}
       {ghostOpenEnabled && (
-        <div className="pl-1">
-          <GhostCredits variant="widget" />
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2.5">
+            <GhostOpenModelSelector />
+            <GhostCredits variant="badge" />
+          </div>
+          <div className="pl-1">
+            <GhostCredits variant="widget" />
+          </div>
         </div>
       )}
     </div>
