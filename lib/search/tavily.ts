@@ -14,15 +14,16 @@ export interface SearchResult {
 export async function tavilySearch(
   query: string,
   maxResults = 5,
+  apiKey?: string,
 ): Promise<SearchResult[]> {
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) throw new Error("TAVILY_API_KEY not configured");
+  const key = apiKey ?? process.env.TAVILY_API_KEY;
+  if (!key) throw new Error("TAVILY_API_KEY not configured");
 
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      api_key: apiKey,
+      api_key: key,
       query,
       search_depth: "basic",
       include_answer: false,
