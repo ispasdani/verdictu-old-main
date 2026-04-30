@@ -1,4 +1,5 @@
 import { search, tavilySearch, type SearchResult } from "@/lib/search/tavily";
+import { retrieveRelevantChunks } from "@/lib/agent/context/chunker";
 
 export type ToolName = "web_search" | "read_document" | "think";
 
@@ -91,8 +92,8 @@ export async function executeTool(
       const available = ctx.attachments.map((a) => a.filename).join(", ") || "none";
       return { content: `Document "${docName}" not found. Available: ${available}` };
     }
-    // Phase 2 will add proper semantic chunking; for now return first 4000 chars
-    return { content: `[${doc.filename}]\n${doc.text.slice(0, 4000)}` };
+    const excerpt = retrieveRelevantChunks(doc.text, topic);
+    return { content: `[${doc.filename}]\n${excerpt}` };
   }
 
   if (name === "web_search") {

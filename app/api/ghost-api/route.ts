@@ -8,6 +8,7 @@ import { runAgentLoop } from "@/lib/agent/core/loop";
 import { sseChunk } from "@/lib/agent/core/streaming";
 import { agentSystemPrompt, followUpPrompt } from "@/lib/ai/prompts";
 import { DEFAULT_CLAUDE_MODEL } from "@/lib/agent/config";
+import { needsCompaction, compactHistory, type WorkingState } from "@/lib/agent/context/compaction";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -21,6 +22,7 @@ export interface GhostOpenRequestBody {
   attachments?: Array<{ filename: string; text: string }>;
   citationEnabled?: boolean;
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  workingState?: WorkingState;
 }
 
 export async function POST(req: NextRequest) {
@@ -65,6 +67,16 @@ export async function POST(req: NextRequest) {
       try {
         emit({ step: "start", data: { jurisdiction, mode, ghost: true } });
 
+        // Compact history if it has grown too large
+        let loopMessages = initialMessages;
+        let workingState: WorkingState | undefined;
+        if (needsCompaction(initialMessages)) {
+          emit({ step: "compacting", data: {} });
+          const compacted = await compactHistory(initialMessages, claudeApiKey, claudeModel);
+          loopMessages = compacted.messages;
+          workingState = compacted.workingState;
+        }
+
         const result = await runAgentLoop(
           {
             apiKey: claudeApiKey,
@@ -72,7 +84,7 @@ export async function POST(req: NextRequest) {
             systemPrompt,
             toolCtx: { attachments, jurisdiction, baseUrl },
           },
-          initialMessages,
+          loopMessages,
           (stepData) => emit(stepData),
           (token) => emit({ step: "delta", data: { text: token } }),
           req.signal,
@@ -115,6 +127,7 @@ export async function POST(req: NextRequest) {
             followUpQuestions,
             wordsInAnswer: result.answer.split(/\s+/).length,
             turns: result.turns,
+            workingState,
           },
         });
       } catch (err) {

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SearchResult } from "@/lib/search/tavily";
 import { TOOL_DEFINITIONS, executeTool, type ToolContext, type ToolName } from "./tools";
 import { toolCallToStepLabel } from "./streaming";
+import { toCachedSystem, withCacheBreakpoints } from "@/lib/agent/context/cache-markers";
 
 export type StepEmitter = (data: object) => void;
 export type TokenEmitter = (token: string) => void;
@@ -58,9 +59,9 @@ export async function runAgentLoop(
     const streamParams: Anthropic.MessageCreateParamsStreaming = {
       model: config.model,
       max_tokens: useThinking ? thinkingBudget + 8192 : 8192,
-      system: config.systemPrompt,
+      system: toCachedSystem(config.systemPrompt),
       tools: TOOL_DEFINITIONS,
-      messages,
+      messages: withCacheBreakpoints(messages),
       stream: true,
       ...(useThinking
         ? { thinking: { type: "enabled", budget_tokens: thinkingBudget } }
