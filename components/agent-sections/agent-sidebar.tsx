@@ -10,6 +10,7 @@ import {
   SquarePen,
 } from "lucide-react";
 import { ImportChatButton } from "@/components/chat/ImportChatButton";
+import { AgentSettings } from "@/components/settings/AgentSettings";
 
 import {
   Sidebar,
@@ -172,27 +173,31 @@ export function AgentSidebar() {
           </SidebarMenuItem>
 
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              tooltip="Account settings"
-              className="hover:bg-sidebar-accent rounded-md transition-colors"
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-foreground text-xs font-medium select-none border border-sidebar-border">
-                JD
-              </div>
-              <div className="flex flex-col gap-0.5 text-left leading-none min-w-0">
-                <span className="text-sm font-medium text-sidebar-foreground truncate">
-                  John Doe
-                </span>
-                <span className="text-xs text-sidebar-foreground/40 truncate">
-                  john@acmelaw.com
-                </span>
-              </div>
-              <Settings
-                size={13}
-                className="ml-auto shrink-0 text-sidebar-foreground/30"
-              />
-            </SidebarMenuButton>
+            <AgentSettings
+              trigger={
+                <SidebarMenuButton
+                  size="lg"
+                  tooltip="Agent settings"
+                  className="hover:bg-sidebar-accent rounded-md transition-colors cursor-pointer"
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-foreground text-xs font-medium select-none border border-sidebar-border">
+                    JD
+                  </div>
+                  <div className="flex flex-col gap-0.5 text-left leading-none min-w-0">
+                    <span className="text-sm font-medium text-sidebar-foreground truncate">
+                      John Doe
+                    </span>
+                    <span className="text-xs text-sidebar-foreground/40 truncate">
+                      john@acmelaw.com
+                    </span>
+                  </div>
+                  <Settings
+                    size={13}
+                    className="ml-auto shrink-0 text-sidebar-foreground/30"
+                  />
+                </SidebarMenuButton>
+              }
+            />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
