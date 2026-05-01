@@ -1,69 +1,63 @@
 // app/api/ghost-api/route.ts
-// Ghost Open Mode — agentic loop using the user's own Claude API key.
-// No data stored server-side; the key is used only to forward the request to Anthropic.
+// Ghost Open Mode — agentic loop via OpenRouter using the server's API key.
+// Users select any OpenRouter model; credits are deducted per query.
 
 import { NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-import { runAgentLoop } from "@/lib/agent/core/loop";
+import OpenAI from "openai";
 import { sseChunk } from "@/lib/agent/core/streaming";
 import { agentSystemPrompt, followUpPrompt } from "@/lib/ai/prompts";
-import { DEFAULT_CLAUDE_MODEL } from "@/lib/agent/config";
-import { needsCompaction, compactHistory, type WorkingState } from "@/lib/agent/context/compaction";
+import { runOpenRouterLoop } from "@/lib/ghost/openrouter-loop";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
 export interface GhostOpenRequestBody {
   message: string;
-  claudeApiKey: string;
-  claudeModel?: string;
+  modelId: string;
   jurisdiction?: string;
   mode?: "General" | "Compare" | "Draft";
-  attachments?: Array<{ filename: string; text: string }>;
+  attachments?: Array<{ name: string; extractedText: string }>;
   citationEnabled?: boolean;
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
-  workingState?: WorkingState;
-  // Phase 5 — Convex RAG (opt-in; Convex reads are safe even in Ghost mode)
-  useConvexRag?: boolean;
-  convexUserId?: string;
 }
 
 export async function POST(req: NextRequest) {
   const body: GhostOpenRequestBody = await req.json();
   const {
     message,
-    claudeApiKey,
-    claudeModel = DEFAULT_CLAUDE_MODEL,
+    modelId,
     jurisdiction = "EU",
     mode = "General",
     attachments = [],
     citationEnabled = true,
     conversationHistory = [],
-    useConvexRag = false,
-    convexUserId,
   } = body;
 
   if (!message?.trim()) {
     return Response.json({ error: "message is required" }, { status: 400 });
   }
 
-  if (!claudeApiKey?.startsWith("sk-ant-")) {
+  if (!modelId) {
+    return Response.json({ error: "modelId is required" }, { status: 400 });
+  }
+
+  if (!process.env.OPENROUTER_API_KEY) {
     return Response.json(
-      { error: "A valid Claude API key (sk-ant-...) is required for Ghost Open mode. Configure it in Agent Settings." },
-      { status: 400 },
+      { error: "Ghost Open is not available on this server." },
+      { status: 503 },
     );
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const systemPrompt = agentSystemPrompt(jurisdiction, mode, citationEnabled);
 
-  const initialMessages: Anthropic.MessageParam[] = [
-    ...conversationHistory.map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    })),
-    { role: "user" as const, content: message },
-  ];
+  const toolAttachments = attachments.map((a) => ({
+    filename: a.name,
+    text: a.extractedText,
+  }));
+
+  const initialMessages: Array<{ role: "user" | "assistant"; content: string }> =
+    [...conversationHistory, { role: "user", content: message }];
 
   const readable = new ReadableStream({
     async start(controller) {
@@ -72,46 +66,41 @@ export async function POST(req: NextRequest) {
       try {
         emit({ step: "start", data: { jurisdiction, mode, ghost: true } });
 
-        // Compact history if it has grown too large
-        let loopMessages = initialMessages;
-        let workingState: WorkingState | undefined;
-        if (needsCompaction(initialMessages)) {
-          emit({ step: "compacting", data: {} });
-          const compacted = await compactHistory(initialMessages, claudeApiKey, claudeModel);
-          loopMessages = compacted.messages;
-          workingState = compacted.workingState;
-        }
-
-        const result = await runAgentLoop(
+        const result = await runOpenRouterLoop(
           {
-            apiKey: claudeApiKey,
-            model: claudeModel,
+            model: modelId,
             systemPrompt,
-            toolCtx: { attachments, jurisdiction, baseUrl, useConvexRag, convexUserId },
+            toolCtx: { attachments: toolAttachments, jurisdiction, baseUrl },
+            signal: req.signal,
           },
-          loopMessages,
+          initialMessages,
           (stepData) => emit(stepData),
           (token) => emit({ step: "delta", data: { text: token } }),
-          req.signal,
         );
 
-        // Follow-up questions
         emit({ step: "follow_up_generating", data: {} });
         let followUpQuestions: string[] = [];
         try {
-          const client = new Anthropic({ apiKey: claudeApiKey });
-          const fuMsg = await client.messages.create({
-            model: claudeModel,
+          const client = new OpenAI({
+            baseURL: "https://openrouter.ai/api/v1",
+            apiKey: process.env.OPENROUTER_API_KEY,
+            defaultHeaders: {
+              "HTTP-Referer": baseUrl,
+              "X-Title": "Verdictu",
+            },
+          });
+          const fuMsg = await client.chat.completions.create({
+            model: modelId,
             max_tokens: 400,
-            system: followUpPrompt(jurisdiction),
             messages: [
+              { role: "system", content: followUpPrompt(jurisdiction) },
               {
                 role: "user",
                 content: `QUESTION: ${message}\n\nANSWER SUMMARY: ${result.answer.slice(0, 1500)}`,
               },
             ],
-          }, { signal: req.signal });
-          const fuText = fuMsg.content.find((b) => b.type === "text")?.text ?? "";
+          });
+          const fuText = fuMsg.choices[0]?.message.content ?? "";
           const fuParsed = JSON.parse(fuText);
           if (Array.isArray(fuParsed.questions)) {
             followUpQuestions = fuParsed.questions as string[];
@@ -132,14 +121,16 @@ export async function POST(req: NextRequest) {
             followUpQuestions,
             wordsInAnswer: result.answer.split(/\s+/).length,
             turns: result.turns,
-            workingState,
           },
         });
       } catch (err) {
         emit({
           step: "error",
           data: {
-            message: err instanceof Error ? err.message : "Ghost Open agent encountered an error",
+            message:
+              err instanceof Error
+                ? err.message
+                : "Ghost Open agent encountered an error",
           },
         });
       } finally {

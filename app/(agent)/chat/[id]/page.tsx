@@ -1560,8 +1560,16 @@ export default function ChatPage() {
                   setStatusMsg("Generating response…");
                   break;
 
+                case "tool_call":
+                  setStatusMsg((event.data?.label ?? event.label ?? "Thinking…") as string);
+                  break;
+
+                case "thinking":
+                  setStatusMsg("Thinking…");
+                  break;
+
                 case "delta":
-                  answerRef.current += event.text;
+                  answerRef.current += (event.data?.text ?? event.text ?? "") as string;
                   setAnswerText(answerRef.current);
                   break;
 
