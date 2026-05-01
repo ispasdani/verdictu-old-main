@@ -47,6 +47,8 @@ export interface GhostAgentOptions {
   deepSearchEnabled: boolean;
   attachments: Array<{ name: string; extractedText: string }>;
   baseUrl: string;
+  /** downloadSizeMB from GhostModel — used to scale context down for smaller models */
+  modelSizeMB?: number;
   generate: (opts: GhostStreamOptions) => Promise<void>;
   onEvent: (event: GhostAgentEvent) => void;
 }
@@ -67,6 +69,70 @@ export interface GhostAgentAgenticOptions {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
+// Strips <think>...</think> reasoning blocks emitted by models like DeepSeek R1 / Qwen3.
+function stripThinkingBlocks(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
+// Stateful token-level filter that suppresses <think>...</think> content during streaming.
+// If the model never closes the tag (or produces only think content), end() falls back to
+// emitting the stripped full text so the response is never silently blank.
+function makeThinkFilter(onToken: (t: string) => void) {
+  let buf = "";
+  let inThink = false;
+  let hasEmitted = false;
+
+  function emit(text: string) {
+    if (!text) return;
+    hasEmitted = true;
+    onToken(text);
+  }
+
+  return {
+    feed(token: string) {
+      buf += token;
+      let out = "";
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        if (!inThink) {
+          const idx = buf.indexOf("<think>");
+          if (idx === -1) {
+            // Keep last 6 chars — they might be the start of "<think>"
+            const safe = buf.slice(0, Math.max(0, buf.length - 6));
+            out += safe;
+            buf = buf.slice(safe.length);
+            break;
+          }
+          out += buf.slice(0, idx);
+          inThink = true;
+          buf = buf.slice(idx + 7);
+        } else {
+          const idx = buf.indexOf("</think>");
+          if (idx === -1) {
+            // Discard but keep last 7 chars (partial closing tag)
+            buf = buf.length > 7 ? buf.slice(buf.length - 7) : buf;
+            break;
+          }
+          inThink = false;
+          buf = buf.slice(idx + 8);
+        }
+      }
+      emit(out);
+    },
+    // rawFull: the complete unfiltered response, used as fallback if nothing was emitted
+    end(rawFull: string) {
+      if (!inThink && buf) emit(buf);
+      if (!hasEmitted && rawFull) {
+        // Model hit max_tokens inside the think block without closing </think> or writing an answer.
+        // Dumping the raw reasoning loop would show garbage — emit a user-friendly error instead.
+        emit("The model ran out of tokens while reasoning and produced no answer. Try rephrasing your question or switching to a larger model.");
+      }
+      buf = "";
+      inThink = false;
+    },
+  };
+}
+
 async function generateFull(
   generate: GhostAgentOptions["generate"],
   messages: GhostStreamOptions["messages"],
@@ -82,7 +148,7 @@ async function generateFull(
       maxTokens,
     });
   });
-  return result;
+  return stripThinkingBlocks(result);
 }
 
 function extractJSON(text: string): Record<string, unknown> | null {
@@ -101,6 +167,23 @@ function extractJSON(text: string): Record<string, unknown> | null {
 
 function extractDomain(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+}
+
+// ─── Model-size profile ────────────────────────────────────────────────────────
+// Smaller models get fewer sources, shorter snippets, and a tighter token budget
+// to prevent reasoning loops and context overflow.
+
+interface ModelProfile {
+  maxSources: number;
+  snippetLen: number;
+  maxTokens: number;
+}
+
+function getModelProfile(sizeMB = 99999): ModelProfile {
+  if (sizeMB < 1500) return { maxSources: 2, snippetLen: 80,  maxTokens: 800  }; // micro: 0.6B–1.5B
+  if (sizeMB < 3000) return { maxSources: 3, snippetLen: 120, maxTokens: 1500 }; // small: 1.7B–3B
+  if (sizeMB < 5000) return { maxSources: 4, snippetLen: 160, maxTokens: 2500 }; // medium: 4B–7B
+  return               { maxSources: 5, snippetLen: 200, maxTokens: 4000 };       // large: 8B+
 }
 
 // ─── LLM-based search query generation ────────────────────────────────────────
@@ -143,13 +226,13 @@ Rules: queries must target statutes, regulations, exceptions, case law, and lega
     // Fall through to fallback
   }
 
-  // Fallback: simple keyword-based queries
+  // Fallback: two distinct queries covering eligibility/rights and restrictions/exceptions
   const jur = jurisdiction.toUpperCase();
+  const topic = message.slice(0, 80);
   return {
     queries: [
-      `${jur} ${message.slice(0, 60)} law statute`,
-      `${jur} ${message.slice(0, 50)} exception exemption`,
-      `${jur} ${message.slice(0, 45)} legal rights obligations`,
+      `${jur} ${topic} legal requirements rights eligibility`,
+      `${jur} ${topic} exceptions restrictions conditions`,
     ],
     domain: "legal",
   };
@@ -165,10 +248,12 @@ export async function runGhostAgent({
   deepSearchEnabled,
   attachments,
   baseUrl,
+  modelSizeMB,
   generate,
   onEvent,
 }: GhostAgentOptions): Promise<void> {
   const emit = onEvent;
+  const profile = getModelProfile(modelSizeMB);
 
   try {
     // ── Phase 1: Query generation ─────────────────────────────────────────────
@@ -298,12 +383,15 @@ export async function runGhostAgent({
         ? " Use inline citations [1], [2], etc. to reference sources."
         : "";
       fullUserMessage += `\n\n--- WEB RESEARCH RESULTS ---${citationNote}`;
-      sources.forEach((s, i) => {
-        fullUserMessage += `\n\n[${i + 1}] ${s.title}\nURL: ${s.url}\n${(s.snippet ?? "").slice(0, 600)}`;
+      // No raw URLs — URLs in context trigger repetition loops in small models.
+      // Source count and snippet length are scaled by model size via getModelProfile().
+      sources.slice(0, profile.maxSources).forEach((s, i) => {
+        fullUserMessage += `\n\n[${i + 1}] ${s.title}\n${(s.snippet ?? "").slice(0, profile.snippetLen)}`;
       });
     }
 
     let fullAnswer = "";
+    const thinkFilter = makeThinkFilter((token) => emit({ step: "delta", text: token }));
     await new Promise<void>((resolve, reject) => {
       generate({
         messages: [
@@ -312,11 +400,15 @@ export async function runGhostAgent({
         ],
         onToken: (token) => {
           fullAnswer += token;
-          emit({ step: "delta", text: token });
+          thinkFilter.feed(token);
         },
-        onDone: resolve,
+        onDone: () => {
+          thinkFilter.end(fullAnswer);
+          fullAnswer = stripThinkingBlocks(fullAnswer);
+          resolve();
+        },
         onError: (err) => reject(new Error(err)),
-        maxTokens: 4000,
+        maxTokens: profile.maxTokens,
       });
     });
 

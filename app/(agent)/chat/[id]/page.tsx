@@ -1283,6 +1283,7 @@ export default function ChatPage() {
           deepSearchEnabled,
           attachments: agentAttachments,
           baseUrl: window.location.origin,
+          modelSizeMB: ghostModel?.downloadSizeMB,
           generate: ghostGenerate,
           onEvent: ghostOnEvent,
         });
