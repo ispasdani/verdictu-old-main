@@ -28,7 +28,9 @@
       "Bash(grep -r \"\\\\.mode\\\\s*=\" /c/Users/Dan/Documents/verdictu --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\" ! -path \"*/.claude/*\")",
       "Bash(grep -r \"setMode\\\\|mode.*General\\\\|mode.*Compare\\\\|mode.*Draft\" /c/Users/Dan/Documents/verdictu --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\" ! -path \"*/.claude/*\")",
       "Bash(grep -E '\\(^[^/]*$|/[^/]*$\\)')",
-      "Bash(xargs cat *)"
+      "Bash(xargs cat *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Dan\\\\Documents\\\\verdictu\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

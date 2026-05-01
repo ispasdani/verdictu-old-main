@@ -44,6 +44,14 @@ export async function runAgentLoop(
   const thinkingBudget = config.thinkingBudget ?? 8000;
   const useThinking = supportsExtendedThinking(config.model);
 
+  // Enrich toolCtx so sub-agents and the draft tool can call the API
+  const enrichedCtx: ToolContext = {
+    ...config.toolCtx,
+    apiKey: config.apiKey,
+    model: config.model,
+    onSubAgentStep: onStep,
+  };
+
   const messages: Anthropic.MessageParam[] = [...initialMessages];
   const allSources: SearchResult[] = [];
   let fullAnswer = "";
@@ -117,7 +125,7 @@ export async function runAgentLoop(
           result: await executeTool(
             block.name as ToolName,
             block.input as Record<string, unknown>,
-            config.toolCtx,
+            enrichedCtx,
           ),
         })),
       );
