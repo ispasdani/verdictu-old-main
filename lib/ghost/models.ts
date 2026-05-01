@@ -11,6 +11,13 @@ export type GhostModel = {
   tags: string[];
   /** Requires WebGPU shader-f16 extension — may fail on some GPUs/drivers */
   requiresShaderF16?: boolean;
+  /**
+   * Phase 6 — model supports OpenAI-compatible function calling via WebLLM.
+   * When true, the Ghost Local pipeline uses the true agentic loop (local-loop.ts)
+   * with web_search, read_document, retrieve_precedent, and draft_document_section tools.
+   * Smaller models (< 3B) are excluded — reliable tool use requires sufficient capacity.
+   */
+  supportsToolUse?: boolean;
 };
 
 export const GHOST_MODELS: GhostModel[] = [
@@ -65,6 +72,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~3GB",
     description: "Reliable 3B with strong instruction following. Good middle ground.",
     tags: ["balanced", "recommended"],
+    supportsToolUse: true,
   },
   {
     id: "Qwen3-4B-q4f16_1-MLC",
@@ -76,6 +84,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4GB",
     description: "Strongest browser-compatible reasoning model. Thinking mode for deep legal analysis.",
     tags: ["powerful", "reasoning", "recommended", "defense"],
+    supportsToolUse: true,
   },
   {
     id: "gemma-2-2b-it-q4f16_1-MLC",
@@ -123,8 +132,9 @@ export const GHOST_MODELS: GhostModel[] = [
     size: "~4.5GB",
     downloadSizeMB: 4608,
     vram: "~2.9GB",
-    description: "Highly capable 7B with excellent instruction following.",
-    tags: ["powerful"],
+    description: "Highly capable 7B with excellent instruction following. Recommended for Ghost Local agentic mode.",
+    tags: ["powerful", "recommended"],
+    supportsToolUse: true,
   },
   {
     id: "Qwen3-8B-q4f16_1-MLC",
@@ -136,6 +146,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.3GB",
     description: "Latest Qwen3 8B with thinking mode. Strongest local model overall.",
     tags: ["powerful"],
+    supportsToolUse: true,
   },
   {
     id: "Llama-3.1-8B-Instruct-q4f32_1-MLC",
@@ -147,6 +158,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.6GB",
     description: "Meta's flagship 8B instruction model. Versatile and well-rounded.",
     tags: ["powerful"],
+    supportsToolUse: true,
   },
   {
     id: "DeepSeek-R1-Distill-Llama-8B-q4f32_1-MLC",
@@ -169,6 +181,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.6GB",
     description: "Popular open-weight 7B. Great general-purpose performance.",
     tags: ["powerful"],
+    supportsToolUse: true,
   },
 
   // ── Micro (requires shader-f16) ───────────────────────────────────────────

@@ -5,16 +5,25 @@ import { useGhostModeStore } from "@/store/ghostModeStore";
 import { findGhostModel, getSuggestedSmallerModel } from "@/lib/ghost/models";
 import { installOPFSCacheShim, clearOPFSCache } from "@/lib/ghost/opfsCache";
 
-// WebLLM is dynamically imported to keep it out of the server bundle
+// WebLLM is dynamically imported to keep it out of the server bundle.
+// The create() overloads reflect the OpenAI-compatible API:
+//   stream:true  → AsyncIterable<chunk>  (tokens + tool_call deltas)
+//   stream:false → ChatCompletion object (used by draft_document_section)
 type MLCEngine = {
   chat: {
     completions: {
       create: (opts: {
-        messages: { role: string; content: string }[];
+        messages: {
+          role: string;
+          content: string | null;
+          tool_calls?: unknown[];
+          tool_call_id?: string;
+        }[];
+        tools?: unknown[];
         temperature?: number;
         max_tokens?: number;
         stream?: boolean;
-      }) => Promise<AsyncIterable<{ choices: { delta: { content?: string } }[] }>>;
+      }) => Promise<unknown>; // AsyncIterable when stream:true, ChatCompletion when stream:false
     };
   };
   unload: () => Promise<void>;
@@ -46,6 +55,15 @@ let globalEngineModelId: string | null = null;
 // A concurrent call waits for the in-flight load to finish before proceeding,
 // which avoids calling unload() while WebGPU mapAsync operations are still pending.
 let globalLoadingPromise: Promise<void> | null = null;
+
+/**
+ * Returns the currently loaded WebLLM engine, or null if no model is loaded.
+ * Used by the Ghost Local agentic loop (local-loop.ts) to make tool-use calls
+ * directly on the engine without going through the streaming generate() callback.
+ */
+export function getGhostEngine(): MLCEngine | null {
+  return globalEngine;
+}
 
 export type GhostStreamOptions = {
   messages: { role: "user" | "assistant" | "system"; content: string }[];
@@ -205,7 +223,7 @@ export function useGhostLLM() {
           temperature: 0.4,
           max_tokens: maxTokens,
           stream: true,
-        });
+        }) as AsyncIterable<{ choices: { delta: { content?: string } }[] }>;
 
         for await (const chunk of stream) {
           if (abortRef.current) break;

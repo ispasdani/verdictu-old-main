@@ -39,10 +39,11 @@ import {
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AIChatInput from "@/components/agent-general/aiChatInput";
 import { useGhostModeStore } from "@/store/ghostModeStore";
-import { useGhostLLM } from "@/hooks/useGhostLLM";
+import { useGhostLLM, getGhostEngine } from "@/hooks/useGhostLLM";
 import { findGhostModel } from "@/lib/ghost/models";
 import { findGhostApiModel } from "@/lib/ghost/openrouter";
-import { runGhostAgent } from "@/lib/ghost/agent";
+import { runGhostAgent, runGhostAgentAgentic, type GhostAgentEvent } from "@/lib/ghost/agent";
+import type { WebLLMEngine } from "@/lib/ghost/local-loop";
 import { useChatStorageStore } from "@/store/chatStorageStore";
 import { useImportedChatStore } from "@/store/importedChatStore";
 import { exportChatToFile } from "@/lib/chat/exportChat";
@@ -1062,165 +1063,230 @@ export default function ChatPage() {
         ),
       });
 
-      // ── Phase 2: Agent pipeline (intent detection → optional search → synthesis → follow-ups) ─
-      await runGhostAgent({
-        message: currentTextRef.current,
-        jurisdiction: jurisdiction.toUpperCase(),
-        mode: mode as "General" | "Compare" | "Draft",
-        citationEnabled,
-        deepSearchEnabled,
-        attachments: currentAttachmentsRef.current
-          .filter((a) => a.status === "done" && a.extractedText)
-          .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
-        baseUrl: window.location.origin,
-        generate: ghostGenerate,
-        onEvent: (event) => {
-          switch (event.step) {
-            case "classifying":
-              updateStep("classifying", { status: "running" });
-              setStatusMsg("Analyzing your question…");
-              break;
+      // ── Phase 2: Agent pipeline ─────────────────────────────────────────────
+      // Route to the true agentic loop for models that support function calling,
+      // or fall back to the linear pipeline for smaller models.
+      const agentAttachments = currentAttachmentsRef.current
+        .filter((a) => a.status === "done" && a.extractedText)
+        .map((a) => ({ name: a.name, extractedText: a.extractedText! }));
 
-            case "search_queries":
-              setSearchQueries(event.queries);
-              break;
+      const ghostOnEvent = (event: GhostAgentEvent) => {
+        switch (event.step) {
+          case "classifying":
+            updateStep("classifying", { status: "running" });
+            setStatusMsg("Analyzing your question…");
+            break;
 
-            case "intent": {
-              const domainLabel =
-                event.domain.charAt(0).toUpperCase() + event.domain.slice(1);
-              updateStep("classifying", {
-                status: "completed",
-                summary: `${domainLabel} · ${event.needsSearch ? "searching" : "direct"}`,
-                detail: (
-                  <div className="space-y-1 text-xs text-foreground/70">
-                    <div className="flex justify-between py-1 border-b border-border/40">
-                      <span className="text-muted-foreground">Domain</span>
-                      <span className="font-medium capitalize">
-                        {event.domain}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-border/40">
-                      <span className="text-muted-foreground">Web Search</span>
-                      <span className="font-medium">
-                        {event.needsSearch ? "Yes" : "Not needed"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-muted-foreground">Stance</span>
-                      <span className="font-medium text-violet-600">
-                        Always-on defense · no restrictions
-                      </span>
-                    </div>
+          case "search_queries":
+            setSearchQueries(event.queries);
+            break;
+
+          case "intent": {
+            const domainLabel =
+              event.domain.charAt(0).toUpperCase() + event.domain.slice(1);
+            updateStep("classifying", {
+              status: "completed",
+              summary: `${domainLabel} · ${event.needsSearch ? "searching" : "direct"}`,
+              detail: (
+                <div className="space-y-1 text-xs text-foreground/70">
+                  <div className="flex justify-between py-1 border-b border-border/40">
+                    <span className="text-muted-foreground">Domain</span>
+                    <span className="font-medium capitalize">
+                      {event.domain}
+                    </span>
                   </div>
-                ),
-              });
+                  <div className="flex justify-between py-1 border-b border-border/40">
+                    <span className="text-muted-foreground">Web Search</span>
+                    <span className="font-medium">
+                      {event.needsSearch ? "Yes" : "Not needed"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-muted-foreground">Stance</span>
+                    <span className="font-medium text-violet-600">
+                      Always-on defense · no restrictions
+                    </span>
+                  </div>
+                </div>
+              ),
+            });
 
-              // Dynamically insert search step before "synthesizing" if needed
-              if (event.needsSearch) {
-                setSteps((prev) => {
-                  if (prev.some((s) => s.id === "searching")) return prev;
-                  const synthIdx = prev.findIndex(
-                    (s) => s.id === "synthesizing",
-                  );
-                  if (synthIdx === -1) return prev;
-                  const searchStep: AgentStep = {
-                    id: "searching",
-                    label: "Searching for Exceptions & Gaps",
-                    icon: Search,
-                    status: "pending",
-                  };
-                  return [
-                    ...prev.slice(0, synthIdx),
-                    searchStep,
-                    ...prev.slice(synthIdx),
-                  ];
-                });
-                setStatusMsg(
-                  "Searching for exceptions, exemptions, and legal gaps…",
+            if (event.needsSearch) {
+              setSteps((prev) => {
+                if (prev.some((s) => s.id === "searching")) return prev;
+                const synthIdx = prev.findIndex(
+                  (s) => s.id === "synthesizing",
                 );
-              } else {
-                setStatusMsg("Generating response…");
-              }
-              break;
-            }
-
-            case "searching":
-              updateStep("searching", {
-                status: "running",
-                summary: undefined,
+                if (synthIdx === -1) return prev;
+                const searchStep: AgentStep = {
+                  id: "searching",
+                  label: "Searching for Exceptions & Gaps",
+                  icon: Search,
+                  status: "pending",
+                };
+                return [
+                  ...prev.slice(0, synthIdx),
+                  searchStep,
+                  ...prev.slice(synthIdx),
+                ];
               });
               setStatusMsg(
-                `Searching ${event.index}/${event.total}: "${event.query.slice(0, 60)}${event.query.length > 60 ? "…" : ""}"`,
+                "Searching for exceptions, exemptions, and legal gaps…",
               );
-              break;
-
-            case "search_results": {
-              const newSrcs = event.sources ?? [];
-              if (newSrcs.length > 0) {
-                setSources((prev) => {
-                  const urls = new Set(prev.map((s) => s.url));
-                  return [...prev, ...newSrcs.filter((s) => !urls.has(s.url))];
-                });
-              }
-              setStatusMsg(
-                `Found ${event.count} sources for "${event.query.slice(0, 50)}…"`,
-              );
-              break;
-            }
-
-            case "sources_ranked":
-              updateStep("searching", {
-                status: "completed",
-                summary: `${event.total} source${event.total !== 1 ? "s" : ""} · ${event.engine}`,
-                detail: (
-                  <p className="text-xs text-muted-foreground">
-                    {event.total} deduplicated sources retrieved via{" "}
-                    {event.engine}.
-                  </p>
-                ),
-              });
-              setStatusMsg(
-                `${event.total} sources found · generating response…`,
-              );
-              break;
-
-            case "synthesizing":
-              updateStep("synthesizing", { status: "running" });
+            } else {
               setStatusMsg("Generating response…");
-              break;
-
-            case "delta":
-              answerRef.current += event.text;
-              setAnswerText(answerRef.current);
-              break;
-
-            case "follow_up_generating":
-              updateStep("synthesizing", {
-                status: "completed",
-                summary: `${answerRef.current.split(/\s+/).length} words`,
-              });
-              updateStep("follow_up", { status: "running" });
-              setStatusMsg("Generating follow-up questions…");
-              break;
-
-            case "done": {
-              setSources(event.sources);
-              setFollowUpQuestions(event.followUpQuestions);
-              updateStep("follow_up", {
-                status: "completed",
-                summary: `${event.followUpQuestions.length} question${event.followUpQuestions.length !== 1 ? "s" : ""}`,
-              });
-              setStatusMsg("Complete");
-              setIsDone(true);
-              break;
             }
-
-            case "error":
-              setError(event.message);
-              break;
+            break;
           }
-        },
-      });
+
+          case "searching":
+            updateStep("searching", { status: "running", summary: undefined });
+            setStatusMsg(
+              `Searching ${event.index}/${event.total}: "${event.query.slice(0, 60)}${event.query.length > 60 ? "…" : ""}"`,
+            );
+            break;
+
+          case "search_results": {
+            const newSrcs = event.sources ?? [];
+            if (newSrcs.length > 0) {
+              setSources((prev) => {
+                const urls = new Set(prev.map((s) => s.url));
+                return [...prev, ...newSrcs.filter((s) => !urls.has(s.url))];
+              });
+            }
+            setStatusMsg(
+              `Found ${event.count} sources for "${event.query.slice(0, 50)}…"`,
+            );
+            break;
+          }
+
+          case "sources_ranked":
+            updateStep("searching", {
+              status: "completed",
+              summary: `${event.total} source${event.total !== 1 ? "s" : ""} · ${event.engine}`,
+              detail: (
+                <p className="text-xs text-muted-foreground">
+                  {event.total} deduplicated sources retrieved via {event.engine}.
+                </p>
+              ),
+            });
+            setStatusMsg(`${event.total} sources found · generating response…`);
+            break;
+
+          case "synthesizing":
+            updateStep("classifying", { status: "completed", summary: "Agentic · tool use" });
+            updateStep("synthesizing", { status: "running" });
+            setStatusMsg("Generating response…");
+            break;
+
+          // Phase 6 — agentic loop events
+          case "thinking":
+            setStatusMsg("Thinking…");
+            break;
+
+          case "tool_call": {
+            setStatusMsg(event.label);
+            // Dynamically insert a "searching" step when the agent uses web_search
+            if (event.tool === "web_search") {
+              setSteps((prev) => {
+                if (prev.some((s) => s.id === "searching")) {
+                  return prev.map((s) =>
+                    s.id === "searching" ? { ...s, status: "running" as const } : s,
+                  );
+                }
+                const synthIdx = prev.findIndex((s) => s.id === "synthesizing");
+                if (synthIdx === -1) return prev;
+                const searchStep: AgentStep = {
+                  id: "searching",
+                  label: "Searching for Exceptions & Gaps",
+                  icon: Search,
+                  status: "running" as const,
+                };
+                return [
+                  ...prev.slice(0, synthIdx),
+                  searchStep,
+                  ...prev.slice(synthIdx),
+                ];
+              });
+            }
+            break;
+          }
+
+          case "delta":
+            answerRef.current += event.text;
+            setAnswerText(answerRef.current);
+            break;
+
+          case "follow_up_generating":
+            updateStep("synthesizing", {
+              status: "completed",
+              summary: `${answerRef.current.split(/\s+/).length} words`,
+            });
+            updateStep("follow_up", { status: "running" });
+            setStatusMsg("Generating follow-up questions…");
+            break;
+
+          case "done": {
+            setSources(event.sources as Source[]);
+            setFollowUpQuestions(event.followUpQuestions);
+            // In agentic mode followUpQuestions is empty — mark step complete
+            updateStep("searching", { status: "completed" });
+            updateStep("synthesizing", {
+              status: "completed",
+              summary: `${answerRef.current.split(/\s+/).length} words`,
+            });
+            updateStep("follow_up", {
+              status: "completed",
+              summary:
+                event.followUpQuestions.length > 0
+                  ? `${event.followUpQuestions.length} question${event.followUpQuestions.length !== 1 ? "s" : ""}`
+                  : undefined,
+            });
+            setStatusMsg("Complete");
+            setIsDone(true);
+            break;
+          }
+
+          case "error":
+            setError(event.message);
+            break;
+        }
+      };
+
+      if (ghostModel?.supportsToolUse) {
+        const engine = getGhostEngine();
+        if (!engine) {
+          throw new Error(
+            "Ghost model not ready. The engine was unloaded unexpectedly.",
+          );
+        }
+        await runGhostAgentAgentic({
+          message: currentTextRef.current,
+          jurisdiction: jurisdiction.toUpperCase(),
+          mode: mode as "General" | "Compare" | "Draft",
+          attachments: agentAttachments,
+          baseUrl: window.location.origin,
+          precedents: precedentsRef.current,
+          conversationHistory: historyRef.current.map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+          engine: engine as unknown as WebLLMEngine,
+          onEvent: ghostOnEvent,
+        });
+      } else {
+        await runGhostAgent({
+          message: currentTextRef.current,
+          jurisdiction: jurisdiction.toUpperCase(),
+          mode: mode as "General" | "Compare" | "Draft",
+          citationEnabled,
+          deepSearchEnabled,
+          attachments: agentAttachments,
+          baseUrl: window.location.origin,
+          generate: ghostGenerate,
+          onEvent: ghostOnEvent,
+        });
+      }
 
       clearInterval(ticker);
       setIsRunning(false);

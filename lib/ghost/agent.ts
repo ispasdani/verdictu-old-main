@@ -5,9 +5,11 @@
 // — Always-on defense: every response is built to find gaps, exceptions, and angles
 //   that help the user — no keyword triggers needed, no mode switching
 // — LLM-driven search: local model generates targeted search queries (Perplexity-style)
+// — Phase 6: runGhostAgentAgentic() upgrades capable models to a true tool-use loop
 
 import type { GhostStreamOptions } from "@/hooks/useGhostLLM";
-import { ghostModePrompt, ghostFollowUpPrompt, alignmentCheckPrompt } from "@/lib/ai/prompts";
+import { ghostModePrompt, ghostFollowUpPrompt, alignmentCheckPrompt, ghostLocalAgentPrompt } from "@/lib/ai/prompts";
+import type { PrecedentEntry } from "@/lib/memory/client-store";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,6 +31,9 @@ export type GhostAgentEvent =
   | { step: "aligning" }
   | { step: "alignment_result"; aligned: boolean; originalIntent?: string; corrected: boolean }
   | { step: "synthesizing" }
+  // Phase 6 — agentic mode events
+  | { step: "thinking" }
+  | { step: "tool_call"; tool: string; label: string }
   | { step: "delta"; text: string }
   | { step: "follow_up_generating" }
   | { step: "done"; sources: GhostAgentSource[]; followUpQuestions: string[]; wordsInAnswer: number }
@@ -43,6 +48,20 @@ export interface GhostAgentOptions {
   attachments: Array<{ name: string; extractedText: string }>;
   baseUrl: string;
   generate: (opts: GhostStreamOptions) => Promise<void>;
+  onEvent: (event: GhostAgentEvent) => void;
+}
+
+// ─── Phase 6: Agentic options (no generate callback — uses engine directly) ──
+
+export interface GhostAgentAgenticOptions {
+  message: string;
+  jurisdiction: string;
+  mode: "General" | "Compare" | "Draft";
+  attachments: Array<{ name: string; extractedText: string }>;
+  baseUrl: string;
+  precedents?: PrecedentEntry[];
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  engine: import("./local-loop").WebLLMEngine;
   onEvent: (event: GhostAgentEvent) => void;
 }
 
@@ -332,6 +351,69 @@ export async function runGhostAgent({
     emit({
       step: "error",
       message: err instanceof Error ? err.message : "Ghost agent encountered an error",
+    });
+  }
+}
+
+// ─── Phase 6: True agentic Ghost Local loop ────────────────────────────────────
+// Uses the on-device WebLLM engine with function calling instead of the
+// linear pipeline above. Only called when the loaded model supportsToolUse.
+
+export async function runGhostAgentAgentic({
+  message,
+  jurisdiction,
+  mode,
+  attachments,
+  baseUrl,
+  precedents,
+  conversationHistory = [],
+  engine,
+  onEvent,
+}: GhostAgentAgenticOptions): Promise<void> {
+  const emit = onEvent;
+  emit({ step: "classifying" });
+
+  const systemPrompt = ghostLocalAgentPrompt(jurisdiction, mode);
+
+  // Build user message — include attachment excerpts inline so the model
+  // knows what documents are available before calling read_document
+  let userContent = message;
+  if (attachments.length > 0) {
+    userContent += "\n\n--- ATTACHED DOCUMENTS ---";
+    for (const a of attachments) {
+      userContent += `\n\n[${a.name}] (use read_document("${a.name}", topic) for full content)\nPreview: ${a.extractedText.slice(0, 400)}`;
+    }
+  }
+
+  const initialMessages: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }> = [
+    ...conversationHistory,
+    { role: "user", content: userContent },
+  ];
+
+  emit({ step: "synthesizing" });
+
+  try {
+    const { runLocalAgentLoop } = await import("./local-loop");
+    await runLocalAgentLoop({
+      systemPrompt,
+      initialMessages,
+      toolCtx: {
+        attachments,
+        jurisdiction: jurisdiction.toUpperCase(),
+        baseUrl,
+        precedents,
+      },
+      engine,
+      onEvent: emit,
+    });
+  } catch (err) {
+    emit({
+      step: "error",
+      message:
+        err instanceof Error ? err.message : "Ghost agent encountered an error",
     });
   }
 }

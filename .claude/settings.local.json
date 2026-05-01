@@ -32,7 +32,8 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Dan\\\\Documents\\\\verdictu\" -Directory)",
       "Bash(Select-Object Name)",
       "Bash(Get-ChildItem \"c:\\\\Users\\\\Dan\\\\Documents\\\\verdictu\" -Depth 2)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(find c:\\\\\\\\Users\\\\\\\\Dan\\\\\\\\Documents\\\\\\\\verdictu -type d \\\\\\( -name ghost -o -name agent \\\\\\))"
     ]
   }
 }
