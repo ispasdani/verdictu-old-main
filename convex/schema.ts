@@ -297,6 +297,38 @@ export default defineSchema({
     .index("by_source", ["sourceArticleId"])
     .index("by_target", ["targetArticleId"]),
 
+  // User-uploaded documents and precedents stored for Convex RAG (Phase 5)
+  // Activated when user enables "Sync with Verdictu" in Agent Settings.
+  documents: defineTable({
+    userId: v.id("users"),
+    organizationId: v.optional(v.id("organizations")),
+    title: v.string(),
+    type: v.union(
+      v.literal("contract"),
+      v.literal("memo"),
+      v.literal("brief"),
+      v.literal("precedent"),
+    ),
+    content: v.string(),
+    // 1536-dim OpenAI text-embedding-3-small; optional until embedding pipeline runs
+    embedding: v.optional(v.array(v.number())),
+    parties: v.array(v.string()),
+    jurisdiction: v.string(),
+    tags: v.array(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_jurisdiction", ["userId", "jurisdiction"])
+    .searchIndex("search_documents", {
+      searchField: "content",
+      filterFields: ["userId", "jurisdiction"],
+    })
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1536,
+      filterFields: ["jurisdiction", "userId"],
+    }),
+
   // User-curated law collections for comparison and research sessions
   userLawCollections: defineTable({
     userId: v.id("users"),

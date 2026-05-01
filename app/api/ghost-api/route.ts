@@ -23,6 +23,9 @@ export interface GhostOpenRequestBody {
   citationEnabled?: boolean;
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
   workingState?: WorkingState;
+  // Phase 5 — Convex RAG (opt-in; Convex reads are safe even in Ghost mode)
+  useConvexRag?: boolean;
+  convexUserId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -36,6 +39,8 @@ export async function POST(req: NextRequest) {
     attachments = [],
     citationEnabled = true,
     conversationHistory = [],
+    useConvexRag = false,
+    convexUserId,
   } = body;
 
   if (!message?.trim()) {
@@ -82,7 +87,7 @@ export async function POST(req: NextRequest) {
             apiKey: claudeApiKey,
             model: claudeModel,
             systemPrompt,
-            toolCtx: { attachments, jurisdiction, baseUrl },
+            toolCtx: { attachments, jurisdiction, baseUrl, useConvexRag, convexUserId },
           },
           loopMessages,
           (stepData) => emit(stepData),

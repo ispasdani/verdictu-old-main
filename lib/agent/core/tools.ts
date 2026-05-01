@@ -12,6 +12,7 @@ export type ToolName =
   | "read_document"
   | "think"
   | "retrieve_precedent"
+  | "search_law_database"
   | "spawn_legal_research"
   | "spawn_company_research"
   | "draft_document_section";
@@ -84,6 +85,27 @@ export const TOOL_DEFINITIONS = [
           type: "string",
           description:
             "Search query — include party names, contract type, or legal topic (e.g. 'Company A employment agreement', 'GDPR data processing addendum')",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "search_law_database" as const,
+    description:
+      "Search the Verdictu law database for statutes, regulations, and articles. Returns exact statutory text with article numbers and legal citations. Prefer this over web_search when you need the precise text of a statute — it returns authoritative source text, not summaries. Only available when the user has enabled Convex Sync.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Search query — use specific legal terms, article concepts, or regulation keywords (e.g. 'lawfulness of data processing', 'termination notice period', 'IP ownership work for hire')",
+        },
+        jurisdiction: {
+          type: "string",
+          description:
+            "Jurisdiction code to filter results (e.g. EU, DE, RO, DK, UK). Omit to search across all jurisdictions.",
         },
       },
       required: ["query"],
@@ -197,6 +219,9 @@ export type ToolContext = {
   apiKey?: string;
   model?: string;
   onSubAgentStep?: (data: object) => void;
+  // Phase 5 — Convex RAG
+  useConvexRag?: boolean;
+  convexUserId?: string;
 };
 
 export type ToolResult = {
@@ -305,6 +330,21 @@ export async function executeTool(
 
   if (name === "retrieve_precedent") {
     const query = String(input.query ?? "");
+
+    // Convex-backed search when Sync mode is enabled
+    if (ctx.useConvexRag && ctx.convexUserId) {
+      const { retrievePrecedentFromConvex } = await import(
+        "@/lib/agent/tools/precedent-convex"
+      );
+      const content = await retrievePrecedentFromConvex(
+        query,
+        ctx.convexUserId,
+        ctx.jurisdiction,
+      );
+      return { content };
+    }
+
+    // Local keyword search fallback (IndexedDB-sourced precedents passed from client)
     const all = ctx.precedents ?? [];
     if (all.length === 0) {
       return {
@@ -319,6 +359,20 @@ export async function executeTool(
       };
     }
     const content = matches.map(formatPrecedentForAgent).join("\n\n---\n\n");
+    return { content };
+  }
+
+  if (name === "search_law_database") {
+    if (!ctx.useConvexRag) {
+      return {
+        content:
+          "Law database search requires Convex Sync to be enabled in Agent Settings. Use web_search instead.",
+      };
+    }
+    const query = String(input.query ?? "");
+    const jurisdiction = input.jurisdiction ? String(input.jurisdiction) : undefined;
+    const { searchLawDatabase } = await import("@/lib/agent/tools/law-db");
+    const content = await searchLawDatabase(query, jurisdiction);
     return { content };
   }
 

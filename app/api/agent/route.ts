@@ -30,6 +30,9 @@ export interface AgentRequestBody {
   claudeModel?: string;
   workingState?: WorkingState;
   precedents?: PrecedentEntry[];
+  // Phase 5 — Convex RAG
+  useConvexRag?: boolean;
+  convexUserId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -43,6 +46,8 @@ export async function POST(req: NextRequest) {
     conversationHistory = [],
     claudeModel = DEFAULT_CLAUDE_MODEL,
     precedents = [],
+    useConvexRag = false,
+    convexUserId,
   } = body;
 
   if (!message?.trim()) {
@@ -87,7 +92,7 @@ export async function POST(req: NextRequest) {
             apiKey,
             model: claudeModel,
             systemPrompt,
-            toolCtx: { attachments, jurisdiction, baseUrl, precedents },
+            toolCtx: { attachments, jurisdiction, baseUrl, precedents, useConvexRag, convexUserId },
           },
           loopMessages,
           (stepData) => emit(stepData),
