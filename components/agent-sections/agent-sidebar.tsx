@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { ImportChatButton } from "@/components/chat/ImportChatButton";
 import { AgentSettings } from "@/components/settings/AgentSettings";
+import { useChatHistory } from "@/hooks/useChatHistory";
 
 import {
   Sidebar,
@@ -33,19 +34,11 @@ const FEATURES = [
   { id: "workflows", label: "Workflows", icon: Workflow, href: "/workflows" },
 ];
 
-type Chat = { id: string; title: string };
-
-const MOCK_CHATS: Chat[] = [
-  { id: "1", title: "Can a landlord increase rent during a fixed-term lease?" },
-  { id: "2", title: "Employment termination rights in Germany" },
-  { id: "3", title: "How to dispute an insurance claim refusal" },
-  { id: "4", title: "GDPR data deletion request process" },
-];
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function AgentSidebar() {
   const pathname = usePathname();
+  const { chats, loading } = useChatHistory();
 
   return (
     <Sidebar>
@@ -132,10 +125,24 @@ export function AgentSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {MOCK_CHATS.map((chat) => {
-                const isActive = pathname === `/chat/${chat.id}`;
+              {loading && (
+                <SidebarMenuItem>
+                  <span className="px-2 py-1 text-xs text-sidebar-foreground/30">
+                    Loading…
+                  </span>
+                </SidebarMenuItem>
+              )}
+              {!loading && chats.length === 0 && (
+                <SidebarMenuItem>
+                  <span className="px-2 py-1 text-xs text-sidebar-foreground/30">
+                    No saved chats yet
+                  </span>
+                </SidebarMenuItem>
+              )}
+              {chats.slice(0, 20).map((chat) => {
+                const isActive = pathname === `/chat/${chat.chatId}`;
                 return (
-                  <SidebarMenuItem key={chat.id}>
+                  <SidebarMenuItem key={chat.chatId}>
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
@@ -147,7 +154,7 @@ export function AgentSidebar() {
                           : "text-sidebar-foreground/40 hover:text-sidebar-foreground/80 hover:bg-sidebar-accent",
                       )}
                     >
-                      <Link href={`/chat/${chat.id}`}>
+                      <Link href={`/chat/${chat.chatId}`}>
                         <span className="text-sm truncate">{chat.title}</span>
                       </Link>
                     </SidebarMenuButton>

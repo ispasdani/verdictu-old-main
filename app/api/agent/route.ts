@@ -10,6 +10,7 @@ import { sseChunk } from "@/lib/agent/core/streaming";
 import { agentSystemPrompt, followUpPrompt } from "@/lib/ai/prompts";
 import { DEFAULT_CLAUDE_MODEL } from "@/lib/agent/config";
 import { needsCompaction, compactHistory, type WorkingState } from "@/lib/agent/context/compaction";
+import type { PrecedentEntry } from "@/lib/memory/client-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -28,6 +29,7 @@ export interface AgentRequestBody {
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
   claudeModel?: string;
   workingState?: WorkingState;
+  precedents?: PrecedentEntry[];
 }
 
 export async function POST(req: NextRequest) {
@@ -40,6 +42,7 @@ export async function POST(req: NextRequest) {
     citationEnabled = true,
     conversationHistory = [],
     claudeModel = DEFAULT_CLAUDE_MODEL,
+    precedents = [],
   } = body;
 
   if (!message?.trim()) {
@@ -84,7 +87,7 @@ export async function POST(req: NextRequest) {
             apiKey,
             model: claudeModel,
             systemPrompt,
-            toolCtx: { attachments, jurisdiction, baseUrl },
+            toolCtx: { attachments, jurisdiction, baseUrl, precedents },
           },
           loopMessages,
           (stepData) => emit(stepData),

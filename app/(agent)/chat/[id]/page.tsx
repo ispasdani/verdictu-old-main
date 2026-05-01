@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   useChatComposerStore,
   type AttachmentItem,
@@ -31,6 +32,9 @@ import {
   HardDrive as HardDriveIcon,
   Download as DownloadIcon,
   MessageSquare,
+  Bookmark,
+  BookmarkCheck,
+  Trash2,
 } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import AIChatInput from "@/components/agent-general/aiChatInput";
@@ -42,6 +46,20 @@ import { runGhostAgent } from "@/lib/ghost/agent";
 import { useChatStorageStore } from "@/store/chatStorageStore";
 import { useImportedChatStore } from "@/store/importedChatStore";
 import { exportChatToFile } from "@/lib/chat/exportChat";
+import {
+  loadConversation,
+  saveConversation,
+  addPrecedent,
+  listPrecedents,
+  type StoredTurn,
+  type WorkingStateSnapshot,
+  type PrecedentEntry,
+} from "@/lib/memory/client-store";
+
+// Helper: derive a short title from the first user message
+function deriveChatTitle(firstUserText: string): string {
+  return firstUserText.slice(0, 60).trim() + (firstUserText.length > 60 ? "…" : "");
+}
 
 // ─── Spinner verbs ─────────────────────────────────────────────────────────────
 // Cycles through these during long-running steps
@@ -723,6 +741,9 @@ function buildGhostOpenSteps(): AgentStep[] {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
+  const params = useParams();
+  const chatId = typeof params?.id === "string" ? params.id : "new";
+
   const text = useChatComposerStore((s) => s.text);
   const mode =
     (useChatComposerStore((s) => s as Record<string, unknown>).mode as
@@ -807,6 +828,15 @@ export default function ChatPage() {
   const answerRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // ── IndexedDB memory (Phase 3) ────────────────────────────────────────────
+  const workingStateRef = useRef<WorkingStateSnapshot | undefined>(undefined);
+  const precedentsRef = useRef<PrecedentEntry[]>([]);
+  // Mirrors completedTurns as StoredTurns for IDB writes (avoids stale closure)
+  const completedTurnsRef = useRef<StoredTurn[]>([]);
+  const [savedPrecedentIds, setSavedPrecedentIds] = useState<Set<number>>(
+    new Set(),
+  );
+
   const handleCopyAnswer = useCallback(() => {
     navigator.clipboard.writeText(answerRef.current).then(() => {
       setCopiedAnswer(true);
@@ -879,9 +909,79 @@ export default function ChatPage() {
     // Mark as done so the input isn't disabled
     setIsDone(true);
 
+    // Also restore working state from the imported file if present
+    if ((pendingImport as { workingState?: WorkingStateSnapshot }).workingState) {
+      workingStateRef.current = (
+        pendingImport as { workingState?: WorkingStateSnapshot }
+      ).workingState;
+    }
+
     clearPendingImport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── IDB load on mount ────────────────────────────────────────────────────────
+  // Load a previously saved conversation and precedent library from IndexedDB.
+  // Skipped for new chats and when a .verdictu import is in flight.
+  useEffect(() => {
+    if (chatId === "new") return;
+    if (pendingImport) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        // Load saved conversation if it exists
+        const saved = await loadConversation(chatId);
+        if (saved && saved.turns.length > 0 && !cancelled) {
+          const turns: CompletedTurn[] = saved.turns.map((t: StoredTurn) => ({
+            userText: t.userText,
+            userAttachments: t.userAttachments,
+            userJurisdiction: t.userJurisdiction,
+            userMode: t.userMode,
+            assistantText: t.assistantText,
+            sources: t.sources,
+            searchQueries: t.searchQueries,
+            laws: t.laws,
+            elapsedMs: t.elapsedMs,
+            isGhost: t.isGhost,
+            isGhostOpen: t.isGhostOpen,
+            ghostModelName: t.ghostModelName,
+          }));
+          setCompletedTurns(turns);
+          completedTurnsRef.current = saved.turns;
+          historyRef.current = turns.flatMap((t) => [
+            { role: "user" as const, content: t.userText },
+            { role: "assistant" as const, content: t.assistantText },
+          ]);
+          if (saved.workingState) workingStateRef.current = saved.workingState;
+          const last = saved.turns.at(-1);
+          if (last) {
+            setCurrentDisplayJurisdiction(last.userJurisdiction);
+            setCurrentDisplayMode(last.userMode);
+          }
+          setCurrentDisplayText("");
+          currentTextRef.current = "";
+          setIsDone(true);
+          skipInitialRunRef.current = true;
+        }
+      } catch {
+        // IDB read failure is non-fatal — just start fresh
+      }
+
+      // Always load the precedent library for retrieve_precedent tool support
+      try {
+        const precs = await listPrecedents();
+        if (!cancelled) precedentsRef.current = precs;
+      } catch {
+        // Non-fatal
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
 
   // ── Step helpers ────────────────────────────────────────────────────────────
 
@@ -1524,6 +1624,7 @@ export default function ChatPage() {
             .filter((a) => a.status === "done" && a.extractedText)
             .map((a) => ({ filename: a.name, text: a.extractedText! })),
           conversationHistory: historyRef.current,
+          precedents: precedentsRef.current,
         };
 
         const res = await fetch("/api/agent", {
@@ -1761,10 +1862,15 @@ export default function ChatPage() {
         const doneSources = (data.sources as Source[]) ?? [];
         const doneLaws = (data.laws as LawItem[]) ?? [];
         const doneQuestions = (data.followUpQuestions as string[]) ?? [];
+        const doneWorkingState = data.workingState as WorkingStateSnapshot | undefined;
 
         setSources(doneSources);
         if (doneLaws.length > 0) setLaws(doneLaws);
         setFollowUpQuestions(doneQuestions);
+
+        if (doneWorkingState) {
+          workingStateRef.current = doneWorkingState;
+        }
 
         updateStep("follow_up", {
           status: "completed",
@@ -1791,29 +1897,28 @@ export default function ChatPage() {
       // Save the just-completed turn for display
       const finalAnswer = answerRef.current;
       if (finalAnswer.trim()) {
-        setCompletedTurns((prev) => [
-          ...prev,
-          {
-            userText: currentTextRef.current,
-            userAttachments: currentAttachmentsRef.current
-              .filter((a) => a.status === "done" && a.extractedText)
-              .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
-            userJurisdiction: currentDisplayJurisdiction,
-            userMode: currentDisplayMode,
-            assistantText: finalAnswer,
-            sources,
-            searchQueries,
-            laws,
-            elapsedMs,
-            isGhost: ghostEnabled,
-            isGhostOpen: ghostOpenEnabled,
-            ghostModelName: ghostEnabled
-              ? (ghostModel?.name ?? undefined)
-              : ghostOpenEnabled
-                ? (ghostOpenModel?.name ?? undefined)
-                : undefined,
-          } satisfies CompletedTurn,
-        ]);
+        const newTurn: CompletedTurn = {
+          userText: currentTextRef.current,
+          userAttachments: currentAttachmentsRef.current
+            .filter((a) => a.status === "done" && a.extractedText)
+            .map((a) => ({ name: a.name, extractedText: a.extractedText! })),
+          userJurisdiction: currentDisplayJurisdiction,
+          userMode: currentDisplayMode,
+          assistantText: finalAnswer,
+          sources,
+          searchQueries,
+          laws,
+          elapsedMs,
+          isGhost: ghostEnabled,
+          isGhostOpen: ghostOpenEnabled,
+          ghostModelName: ghostEnabled
+            ? (ghostModel?.name ?? undefined)
+            : ghostOpenEnabled
+              ? (ghostOpenModel?.name ?? undefined)
+              : undefined,
+        };
+
+        setCompletedTurns((prev) => [...prev, newTurn]);
 
         // Extend conversation history so the API sees prior turns
         historyRef.current = [
@@ -1821,6 +1926,24 @@ export default function ChatPage() {
           { role: "user", content: currentTextRef.current },
           { role: "assistant", content: finalAnswer },
         ];
+
+        // Persist to IndexedDB using the turns ref (fire-and-forget, non-fatal)
+        if (chatId !== "new") {
+          const storedNew: StoredTurn = {
+            ...newTurn,
+            timestamp: Date.now(),
+          };
+          completedTurnsRef.current = [...completedTurnsRef.current, storedNew];
+          const title = deriveChatTitle(
+            completedTurnsRef.current[0]?.userText ?? "Conversation",
+          );
+          saveConversation(
+            chatId,
+            completedTurnsRef.current,
+            title,
+            workingStateRef.current,
+          ).catch(() => {});
+        }
       }
 
       // Point refs at the new turn's data
@@ -1918,6 +2041,38 @@ export default function ChatPage() {
     ghostModel,
     ghostOpenModel,
   ]);
+
+  // ── Save as Precedent handler ────────────────────────────────────────────────
+  const handleSaveAsPrecedent = useCallback(
+    async (turnIdx: number) => {
+      const turn = completedTurns[turnIdx];
+      if (!turn) return;
+
+      const entry = {
+        title: deriveChatTitle(turn.userText),
+        parties: workingStateRef.current?.parties.map((p) => p.name) ?? [],
+        jurisdiction: turn.userJurisdiction,
+        tags: [turn.userMode, turn.userJurisdiction].filter(Boolean),
+        assistantText: turn.assistantText,
+        userText: turn.userText,
+        sources: turn.sources.map((s) => ({ title: s.title, url: s.url })),
+        savedAt: Date.now(),
+      };
+
+      try {
+        const id = await addPrecedent(entry);
+        // Refresh the local precedents cache so this session can use it immediately
+        const updated = await listPrecedents();
+        precedentsRef.current = updated;
+        setSavedPrecedentIds((prev) => new Set(prev).add(turnIdx));
+        // Avoid unused-variable warning on `id`
+        void id;
+      } catch {
+        // Non-fatal — IDB write failed
+      }
+    },
+    [completedTurns],
+  );
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -2064,9 +2219,38 @@ export default function ChatPage() {
                   <span className="text-sm font-medium text-foreground">
                     {turn.isGhost || turn.isGhostOpen || !isLegalMode ? "Response" : "Legal Analysis"}
                   </span>
-                  <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">
-                    {(turn.elapsedMs / 1000).toFixed(1)}s
-                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground/40 tabular-nums">
+                      {(turn.elapsedMs / 1000).toFixed(1)}s
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveAsPrecedent(turnIdx)}
+                      disabled={savedPrecedentIds.has(turnIdx)}
+                      title={
+                        savedPrecedentIds.has(turnIdx)
+                          ? "Saved to precedent library"
+                          : "Save to precedent library"
+                      }
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                        savedPrecedentIds.has(turnIdx)
+                          ? "text-emerald-600 bg-emerald-50 border border-emerald-200 cursor-default"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border"
+                      }`}
+                    >
+                      {savedPrecedentIds.has(turnIdx) ? (
+                        <>
+                          <BookmarkCheck size={11} />
+                          Saved
+                        </>
+                      ) : (
+                        <>
+                          <Bookmark size={11} />
+                          Save
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="px-5 py-5">
                   {renderMarkdown(turn.assistantText)}

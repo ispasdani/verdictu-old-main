@@ -1,7 +1,12 @@
 import { search, tavilySearch, type SearchResult } from "@/lib/search/tavily";
 import { retrieveRelevantChunks } from "@/lib/agent/context/chunker";
+import {
+  searchPrecedents,
+  formatPrecedentForAgent,
+} from "@/lib/memory/precedent-search";
+import type { PrecedentEntry } from "@/lib/memory/client-store";
 
-export type ToolName = "web_search" | "read_document" | "think";
+export type ToolName = "web_search" | "read_document" | "think" | "retrieve_precedent";
 
 export const TOOL_DEFINITIONS = [
   {
@@ -59,6 +64,22 @@ export const TOOL_DEFINITIONS = [
       required: ["reasoning"],
     },
   },
+  {
+    name: "retrieve_precedent" as const,
+    description:
+      "Search the user's saved precedent library for a past contract, legal analysis, or prior work matching the query. Returns relevant clauses and prior findings. Use this when the user mentions 'the Company A/B contract', 'our standard NDA', or 'like last time'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Search query — include party names, contract type, or legal topic (e.g. 'Company A employment agreement', 'GDPR data processing addendum')",
+        },
+      },
+      required: ["query"],
+    },
+  },
 ];
 
 export type ToolContext = {
@@ -66,6 +87,7 @@ export type ToolContext = {
   jurisdiction: string;
   baseUrl: string;
   tavilyKey?: string;
+  precedents?: PrecedentEntry[];
 };
 
 export type ToolResult = {
@@ -121,6 +143,25 @@ export async function executeTool(
     } catch {
       return { content: "Search failed. Try a more specific query." };
     }
+  }
+
+  if (name === "retrieve_precedent") {
+    const query = String(input.query ?? "");
+    const all = ctx.precedents ?? [];
+    if (all.length === 0) {
+      return {
+        content:
+          "No precedents found in your library. Save a conversation as a precedent first to use this feature.",
+      };
+    }
+    const matches = searchPrecedents(query, all, 3);
+    if (matches.length === 0) {
+      return {
+        content: `No precedents matched "${query}". Try a different query or check your saved precedents.`,
+      };
+    }
+    const content = matches.map(formatPrecedentForAgent).join("\n\n---\n\n");
+    return { content };
   }
 
   return { content: `Unknown tool: ${name}` };

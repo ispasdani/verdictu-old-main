@@ -18,6 +18,21 @@ export interface VerdictuLaw {
   applies_because: string;
 }
 
+// ─── Working state (compacted conversation summary) ───────────────────────────
+
+export interface VerdictuWorkingState {
+  parties: Array<{
+    name: string;
+    role: string;
+    jurisdiction: string;
+    key_facts: string[];
+  }>;
+  research: Record<string, string>;
+  draft: { current_version: string; disputed_clauses: string[] } | null;
+  decisions: string[];
+  precedents_used: string[];
+}
+
 // ─── A single conversation turn (user Q + assistant A) ────────────────────────
 
 export interface VerdictuTurn {
@@ -28,6 +43,7 @@ export interface VerdictuTurn {
   assistantText: string;
   sources: VerdictuSource[];
   laws: VerdictuLaw[];
+  searchQueries?: string[];
   timestamp: number;
   elapsedMs: number;
   isGhost?: boolean;
@@ -48,5 +64,7 @@ export interface VerdictuFile {
   /** Mode from the last active turn (e.g. "General"). */
   mode: string;
   citationEnabled: boolean;
+  /** Compacted working state from the last history compaction, if any. */
+  workingState?: VerdictuWorkingState;
   turns: VerdictuTurn[];
 }
