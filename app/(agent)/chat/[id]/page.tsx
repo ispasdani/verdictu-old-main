@@ -1284,6 +1284,7 @@ export default function ChatPage() {
           attachments: agentAttachments,
           baseUrl: window.location.origin,
           modelSizeMB: ghostModel?.downloadSizeMB,
+          isReasoningModel: ghostModel?.isReasoningModel,
           generate: ghostGenerate,
           onEvent: ghostOnEvent,
         });
@@ -2513,8 +2514,17 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* ── Agent steps card — legal mode and Ghost modes only ── */}
-          {showPipeline && isRunning && !isDone && (
+          {/* ── Ghost loading pill — shown while Ghost is running but before the first token arrives ── */}
+          {isGhostActive && isRunning && !isDone && !answerText && (
+            <div className="flex items-center gap-2.5 px-4 py-3 bg-card rounded-lg border border-border">
+              <Ghost size={13} className="text-foreground/50 shrink-0" />
+              <span className="text-sm text-muted-foreground">{statusMsg}</span>
+              <div className="ml-auto w-3.5 h-3.5 rounded-full border-2 border-foreground/20 border-t-foreground/60 animate-spin shrink-0" />
+            </div>
+          )}
+
+          {/* ── Agent steps card — legal mode only (Ghost hides intermediate steps) ── */}
+          {showPipeline && isRunning && !isDone && !isGhostActive && (
           <div className="bg-card rounded-lg border border-border overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">

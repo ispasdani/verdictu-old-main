@@ -33,7 +33,11 @@
       "Bash(Select-Object Name)",
       "Bash(Get-ChildItem \"c:\\\\Users\\\\Dan\\\\Documents\\\\verdictu\" -Depth 2)",
       "Bash(Select-Object FullName)",
-      "Bash(find c:\\\\\\\\Users\\\\\\\\Dan\\\\\\\\Documents\\\\\\\\verdictu -type d \\\\\\( -name ghost -o -name agent \\\\\\))"
+      "Bash(find c:\\\\\\\\Users\\\\\\\\Dan\\\\\\\\Documents\\\\\\\\verdictu -type d \\\\\\( -name ghost -o -name agent \\\\\\))",
+      "Bash(npm run *)",
+      "Read(//Users/dnis/Projects/verdictu/lib/ghost/**)",
+      "Bash(git -C /Users/dnis/Projects/verdictu log --oneline -5)",
+      "Bash(git -C /Users/dnis/Projects/verdictu/.claude/worktrees/fervent-chaum-7e28f6 log --oneline -5)"
     ]
   }
 }

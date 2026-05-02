@@ -49,6 +49,10 @@ export interface GhostAgentOptions {
   baseUrl: string;
   /** downloadSizeMB from GhostModel — used to scale context down for smaller models */
   modelSizeMB?: number;
+  /** True for models that emit <think>…</think> blocks (DeepSeek R1, etc.).
+   *  Triggers a dedicated profile: fewer sources + higher max_tokens to prevent
+   *  the think block exhausting the budget before an answer is written. */
+  isReasoningModel?: boolean;
   generate: (opts: GhostStreamOptions) => Promise<void>;
   onEvent: (event: GhostAgentEvent) => void;
 }
@@ -179,11 +183,20 @@ interface ModelProfile {
   maxTokens: number;
 }
 
-function getModelProfile(sizeMB = 99999): ModelProfile {
-  if (sizeMB < 1500) return { maxSources: 2, snippetLen: 80,  maxTokens: 800  }; // micro: 0.6B–1.5B
-  if (sizeMB < 3000) return { maxSources: 3, snippetLen: 120, maxTokens: 1500 }; // small: 1.7B–3B
-  if (sizeMB < 5000) return { maxSources: 4, snippetLen: 160, maxTokens: 2500 }; // medium: 4B–7B
-  return               { maxSources: 5, snippetLen: 200, maxTokens: 4000 };       // large: 8B+
+function getModelProfile(sizeMB = 99999, isReasoningModel = false): ModelProfile {
+  // Base profile by download size
+  let base: ModelProfile;
+  if (sizeMB < 1500) base = { maxSources: 2, snippetLen: 80,  maxTokens: 800  }; // micro: 0.6B–1.5B
+  else if (sizeMB < 3000) base = { maxSources: 3, snippetLen: 120, maxTokens: 1500 }; // small: 1.7B–3B
+  else if (sizeMB < 5000) base = { maxSources: 4, snippetLen: 160, maxTokens: 2500 }; // medium: 4B–7B
+  else base = { maxSources: 5, snippetLen: 200, maxTokens: 4000 };                    // large: 8B+
+
+  if (!isReasoningModel) return base;
+
+  // Reasoning models (DeepSeek R1, etc.) burn tokens on <think> blocks before the answer.
+  // Cut sources to 2 so the context is small, and raise max_tokens to 4000 so the model
+  // has budget left after the think block closes.
+  return { maxSources: 2, snippetLen: base.snippetLen, maxTokens: 4000 };
 }
 
 // ─── LLM-based search query generation ────────────────────────────────────────
@@ -249,11 +262,12 @@ export async function runGhostAgent({
   attachments,
   baseUrl,
   modelSizeMB,
+  isReasoningModel,
   generate,
   onEvent,
 }: GhostAgentOptions): Promise<void> {
   const emit = onEvent;
-  const profile = getModelProfile(modelSizeMB);
+  const profile = getModelProfile(modelSizeMB, isReasoningModel);
 
   try {
     // ── Phase 1: Query generation ─────────────────────────────────────────────
@@ -289,7 +303,7 @@ export async function runGhostAgent({
           const res = await fetch(`${baseUrl}/api/search`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query, maxResults: 10 }),
+            body: JSON.stringify({ query, maxResults: profile.maxSources }),
           });
 
           if (res.ok) {

@@ -18,6 +18,12 @@ export type GhostModel = {
    * Smaller models (< 3B) are excluded — reliable tool use requires sufficient capacity.
    */
   supportsToolUse?: boolean;
+  /**
+   * Model produces <think>...</think> chain-of-thought blocks before its answer.
+   * The token budget for these models is adjusted: fewer sources, higher max_tokens
+   * so the think block doesn't exhaust the budget before the answer is written.
+   */
+  isReasoningModel?: boolean;
 };
 
 export const GHOST_MODELS: GhostModel[] = [
@@ -123,6 +129,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~1.9GB",
     description: "Chain-of-thought reasoning distilled from R1. Surprisingly efficient on VRAM.",
     tags: ["reasoning", "powerful"],
+    isReasoningModel: true,
   },
   {
     id: "Qwen2.5-7B-Instruct-q4f16_1-MLC",
@@ -170,6 +177,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~5.9GB",
     description: "R1 reasoning distilled into Llama 8B. Best defense reasoning for users with a dedicated GPU.",
     tags: ["reasoning", "powerful", "defense"],
+    isReasoningModel: true,
   },
   {
     id: "Mistral-7B-Instruct-v0.3-q4f16_1-MLC",
