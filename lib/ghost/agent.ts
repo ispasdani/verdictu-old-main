@@ -99,17 +99,27 @@ function makeThinkFilter(onToken: (t: string) => void) {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         if (!inThink) {
-          const idx = buf.indexOf("<think>");
-          if (idx === -1) {
-            // Keep last 6 chars — they might be the start of "<think>"
-            const safe = buf.slice(0, Math.max(0, buf.length - 6));
+          const openIdx = buf.indexOf("<think>");
+          const closeIdx = buf.indexOf("</think>");
+
+          // Orphaned </think> with no open <think> before it — strip it silently.
+          // DeepSeek R1 / Qwen3 sometimes emit stray closing tags after the think block ends.
+          if (closeIdx !== -1 && (openIdx === -1 || closeIdx < openIdx)) {
+            out += buf.slice(0, closeIdx);
+            buf = buf.slice(closeIdx + 8);
+            continue;
+          }
+
+          if (openIdx === -1) {
+            // Keep last 7 chars — partial start of "<think>" (6) or "</think>" (7)
+            const safe = buf.slice(0, Math.max(0, buf.length - 7));
             out += safe;
             buf = buf.slice(safe.length);
             break;
           }
-          out += buf.slice(0, idx);
+          out += buf.slice(0, openIdx);
           inThink = true;
-          buf = buf.slice(idx + 7);
+          buf = buf.slice(openIdx + 7);
         } else {
           const idx = buf.indexOf("</think>");
           if (idx === -1) {
