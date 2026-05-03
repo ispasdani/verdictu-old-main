@@ -78,7 +78,6 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~3GB",
     description: "Reliable 3B with strong instruction following. Good middle ground.",
     tags: ["balanced", "recommended"],
-    supportsToolUse: true,
   },
   {
     id: "Qwen3-4B-q4f16_1-MLC",
@@ -90,7 +89,6 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4GB",
     description: "Strongest browser-compatible reasoning model. Thinking mode for deep legal analysis.",
     tags: ["powerful", "reasoning", "recommended", "defense"],
-    supportsToolUse: true,
   },
   {
     id: "gemma-2-2b-it-q4f16_1-MLC",
@@ -141,7 +139,6 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~2.9GB",
     description: "Highly capable 7B with excellent instruction following. Recommended for Ghost Local agentic mode.",
     tags: ["powerful", "recommended"],
-    supportsToolUse: true,
   },
   {
     id: "Qwen3-8B-q4f16_1-MLC",
@@ -153,7 +150,6 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.3GB",
     description: "Latest Qwen3 8B with thinking mode. Strongest local model overall.",
     tags: ["powerful"],
-    supportsToolUse: true,
   },
   {
     id: "Llama-3.1-8B-Instruct-q4f32_1-MLC",
@@ -165,6 +161,17 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.6GB",
     description: "Meta's flagship 8B instruction model. Versatile and well-rounded.",
     tags: ["powerful"],
+  },
+  {
+    id: "Hermes-3-Llama-3.1-8B-q4f16_1-MLC",
+    name: "Hermes 3 Llama 3.1 8B",
+    shortName: "Hermes3 8B",
+    provider: "Nous Research",
+    size: "~4.9GB",
+    downloadSizeMB: 5018,
+    vram: "~4.6GB",
+    description: "Exceptional function calling and agentic capabilities. The recommended model for True Agentic Ghost Local mode.",
+    tags: ["powerful", "agentic", "recommended"],
     supportsToolUse: true,
   },
   {
@@ -189,7 +196,31 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.6GB",
     description: "Popular open-weight 7B. Great general-purpose performance.",
     tags: ["powerful"],
-    supportsToolUse: true,
+  },
+  {
+    id: "gemma-2-9b-it-q4f16_1-MLC",
+    name: "Gemma 2 9B",
+    shortName: "Gemma 2 9B",
+    provider: "Google",
+    size: "~5.2GB",
+    downloadSizeMB: 5221,
+    vram: "~5.5GB",
+    description: "Google's 9B model. Excellent performance and reasoning capabilities.",
+    tags: ["powerful"],
+  },
+
+  // ── Massive (14B+ — requires high-end GPU or Mac with 32GB+ RAM) ─────────────
+
+  {
+    id: "gemma-2-27b-it-q4f16_1-MLC",
+    name: "Gemma 2 27B",
+    shortName: "Gemma 2 27B",
+    provider: "Google",
+    size: "~15.3GB",
+    downloadSizeMB: 15338,
+    vram: "~16.5GB",
+    description: "Google's flagship 27B model. Unmatched local performance but requires significant resources.",
+    tags: ["powerful", "heavy"],
   },
 
   // ── Micro (requires shader-f16) ───────────────────────────────────────────
