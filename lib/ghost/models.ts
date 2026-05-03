@@ -80,6 +80,17 @@ export const GHOST_MODELS: GhostModel[] = [
     tags: ["balanced", "recommended"],
   },
   {
+    id: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
+    name: "Llama 3.2 3B",
+    shortName: "Llama3.2 3B",
+    provider: "Meta",
+    size: "~2GB",
+    downloadSizeMB: 2048,
+    vram: "~3GB",
+    description: "Meta's lightweight 3B model. Very fast with excellent reasoning for its size.",
+    tags: ["balanced", "fast"],
+  },
+  {
     id: "Qwen3-4B-q4f16_1-MLC",
     name: "Qwen 3 4B",
     shortName: "Qwen3 4B",
