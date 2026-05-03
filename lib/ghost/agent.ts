@@ -85,6 +85,7 @@ function makeThinkFilter(onToken: (t: string) => void) {
   let buf = "";
   let inThink = false;
   let hasEmitted = false;
+  let isFirstThinkLine = false;
 
   function emit(text: string) {
     if (!text) return;
@@ -102,8 +103,6 @@ function makeThinkFilter(onToken: (t: string) => void) {
           const openIdx = buf.indexOf("<think>");
           const closeIdx = buf.indexOf("</think>");
 
-          // Orphaned </think> with no open <think> before it — strip it silently.
-          // DeepSeek R1 / Qwen3 sometimes emit stray closing tags after the think block ends.
           if (closeIdx !== -1 && (openIdx === -1 || closeIdx < openIdx)) {
             out += buf.slice(0, closeIdx);
             buf = buf.slice(closeIdx + 8);
@@ -111,7 +110,6 @@ function makeThinkFilter(onToken: (t: string) => void) {
           }
 
           if (openIdx === -1) {
-            // Keep last 7 chars — partial start of "<think>" (6) or "</think>" (7)
             const safe = buf.slice(0, Math.max(0, buf.length - 7));
             out += safe;
             buf = buf.slice(safe.length);
@@ -119,26 +117,55 @@ function makeThinkFilter(onToken: (t: string) => void) {
           }
           out += buf.slice(0, openIdx);
           inThink = true;
+          isFirstThinkLine = true;
           buf = buf.slice(openIdx + 7);
         } else {
           const idx = buf.indexOf("</think>");
           if (idx === -1) {
-            // Discard but keep last 7 chars (partial closing tag)
-            buf = buf.length > 7 ? buf.slice(buf.length - 7) : buf;
+            const safe = buf.slice(0, Math.max(0, buf.length - 8));
+            if (safe) {
+              let processed = safe;
+              if (isFirstThinkLine) {
+                processed = "> **Reasoning Process**\n> " + processed.replace(/\n/g, "\n> ");
+                isFirstThinkLine = false;
+              } else {
+                processed = processed.replace(/\n/g, "\n> ");
+              }
+              out += processed;
+            }
+            buf = buf.slice(safe.length);
             break;
           }
+          let safe = buf.slice(0, idx);
+          let processed = safe;
+          if (isFirstThinkLine) {
+             processed = "> **Reasoning Process**\n> " + processed.replace(/\n/g, "\n> ");
+             isFirstThinkLine = false;
+          } else {
+             processed = processed.replace(/\n/g, "\n> ");
+          }
+          out += processed + "\n\n"; // exit the blockquote
           inThink = false;
           buf = buf.slice(idx + 8);
         }
       }
       emit(out);
     },
-    // rawFull: the complete unfiltered response, used as fallback if nothing was emitted
     end(rawFull: string) {
-      if (!inThink && buf) emit(buf);
+      if (buf) {
+        if (inThink) {
+          let processed = buf;
+          if (isFirstThinkLine) {
+            processed = "> **Reasoning Process**\n> " + processed.replace(/\n/g, "\n> ");
+          } else {
+            processed = processed.replace(/\n/g, "\n> ");
+          }
+          emit(processed + "\n\n");
+        } else {
+          emit(buf);
+        }
+      }
       if (!hasEmitted && rawFull) {
-        // Model hit max_tokens inside the think block without closing </think> or writing an answer.
-        // Dumping the raw reasoning loop would show garbage — emit a user-friendly error instead.
         emit("The model ran out of tokens while reasoning and produced no answer. Try rephrasing your question or switching to a larger model.");
       }
       buf = "";
@@ -287,7 +314,20 @@ export async function runGhostAgent({
     let domain = "legal";
 
     if (deepSearchEnabled) {
-      const generated = await generateSearchQueries(generate, message, jurisdiction);
+      let generated: { queries: string[]; domain: string };
+      if (isReasoningModel) {
+        const jur = jurisdiction.toUpperCase();
+        const topic = message.slice(0, 80);
+        generated = {
+          queries: [
+            `${jur} ${topic} legal requirements rights eligibility`,
+            `${jur} ${topic} exceptions restrictions conditions`,
+          ],
+          domain: "legal",
+        };
+      } else {
+        generated = await generateSearchQueries(generate, message, jurisdiction);
+      }
       searchQueries = generated.queries;
       domain = generated.domain;
       emit({ step: "search_queries", queries: searchQueries });
@@ -355,35 +395,39 @@ export async function runGhostAgent({
     emit({ step: "aligning" });
 
     let correctionNote = "";
-    try {
-      const alignmentUserMessage =
-        `ORIGINAL QUESTION: ${message}\n\n` +
-        `IDENTIFIED LEGAL DOMAIN: ${domain}\n` +
-        `JURISDICTION: ${jurisdiction}\n` +
-        `SEARCH QUERIES USED:\n${
-          searchQueries.length > 0
-            ? searchQueries.map((q) => `• ${q}`).join("\n")
-            : "(no search performed)"
-        }`;
-
-      const alignText = await generateFull(generate, [
-        { role: "system", content: alignmentCheckPrompt() },
-        { role: "user", content: alignmentUserMessage },
-      ]);
-
-      const alignParsed = extractJSON(alignText);
-      if (alignParsed && alignParsed.aligned === false && typeof alignParsed.correctionNote === "string") {
-        correctionNote = alignParsed.correctionNote;
-      }
-
-      emit({
-        step: "alignment_result",
-        aligned: !alignParsed || alignParsed.aligned !== false,
-        originalIntent: typeof alignParsed?.originalIntent === "string" ? alignParsed.originalIntent : undefined,
-        corrected: !!correctionNote,
-      });
-    } catch {
+    if (isReasoningModel) {
       emit({ step: "alignment_result", aligned: true, corrected: false });
+    } else {
+      try {
+        const alignmentUserMessage =
+          `ORIGINAL QUESTION: ${message}\n\n` +
+          `IDENTIFIED LEGAL DOMAIN: ${domain}\n` +
+          `JURISDICTION: ${jurisdiction}\n` +
+          `SEARCH QUERIES USED:\n${
+            searchQueries.length > 0
+              ? searchQueries.map((q) => `• ${q}`).join("\n")
+              : "(no search performed)"
+          }`;
+
+        const alignText = await generateFull(generate, [
+          { role: "system", content: alignmentCheckPrompt() },
+          { role: "user", content: alignmentUserMessage },
+        ]);
+
+        const alignParsed = extractJSON(alignText);
+        if (alignParsed && alignParsed.aligned === false && typeof alignParsed.correctionNote === "string") {
+          correctionNote = alignParsed.correctionNote;
+        }
+
+        emit({
+          step: "alignment_result",
+          aligned: !alignParsed || alignParsed.aligned !== false,
+          originalIntent: typeof alignParsed?.originalIntent === "string" ? alignParsed.originalIntent : undefined,
+          corrected: !!correctionNote,
+        });
+      } catch {
+        emit({ step: "alignment_result", aligned: true, corrected: false });
+      }
     }
 
     // ── Phase 3: Synthesis ────────────────────────────────────────────────────
@@ -419,7 +463,7 @@ export async function runGhostAgent({
     await new Promise<void>((resolve, reject) => {
       generate({
         messages: [
-          { role: "system", content: ghostModePrompt(jurisdiction, mode) },
+          { role: "system", content: ghostModePrompt(jurisdiction, mode) + (isReasoningModel ? "\n\nCRITICAL INSTRUCTION: You are a reasoning model. Do NOT overthink. Keep your <think> reasoning process extremely brief (under 100 words). Get straight to the final legal answer immediately." : "") },
           { role: "user", content: fullUserMessage },
         ],
         onToken: (token) => {
@@ -440,21 +484,23 @@ export async function runGhostAgent({
     emit({ step: "follow_up_generating" });
 
     let followUpQuestions: string[] = [];
-    try {
-      const fuText = await generateFull(generate, [
-        { role: "system", content: ghostFollowUpPrompt() },
-        {
-          role: "user",
-          content: `QUESTION: ${message}\n\nANSWER SUMMARY: ${fullAnswer.slice(0, 800)}`,
-        },
-      ]);
+    if (!isReasoningModel) {
+      try {
+        const fuText = await generateFull(generate, [
+          { role: "system", content: ghostFollowUpPrompt() },
+          {
+            role: "user",
+            content: `QUESTION: ${message}\n\nANSWER SUMMARY: ${fullAnswer.slice(0, 800)}`,
+          },
+        ]);
 
-      const fuParsed = extractJSON(fuText);
-      if (fuParsed && Array.isArray(fuParsed.questions)) {
-        followUpQuestions = fuParsed.questions as string[];
+        const fuParsed = extractJSON(fuText);
+        if (fuParsed && Array.isArray(fuParsed.questions)) {
+          followUpQuestions = fuParsed.questions as string[];
+        }
+      } catch {
+        // Non-fatal
       }
-    } catch {
-      // Non-fatal
     }
 
     emit({

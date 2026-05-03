@@ -264,6 +264,26 @@ function renderMarkdown(
           {line.slice(1, -1)}
         </p>,
       );
+    } else if (line.startsWith(">")) {
+      const bqLines: string[] = [];
+      while (i < lines.length && lines[i].startsWith(">")) {
+        const content = lines[i].slice(lines[i].startsWith("> ") ? 2 : 1);
+        bqLines.push(content);
+        i++;
+      }
+      elements.push(
+        <div
+          key={`bq-${i}`}
+          className="border-l-2 border-indigo-200 pl-3 py-1 my-3 bg-indigo-50/30 rounded-r text-[13px] text-muted-foreground/80 italic space-y-1.5"
+        >
+          {bqLines.map((l, lIdx) => (
+            <p key={lIdx} className="leading-relaxed">
+              {inline(l, onCiteClick)}
+            </p>
+          ))}
+        </div>
+      );
+      continue; // i already advanced
     } else if (line.startsWith("|")) {
       // Collect all consecutive table rows then render as a real table
       const tableLines: string[] = [];
