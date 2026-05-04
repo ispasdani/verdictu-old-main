@@ -65,7 +65,10 @@ export async function POST(req: NextRequest) {
 
       try {
         emit({ step: "start", data: { jurisdiction, mode, ghost: true } });
+        emit({ step: "classifying" });
+        emit({ step: "intent", domain: "legal", needsSearch: false });
 
+        let synthesizingEmitted = false;
         const result = await runOpenRouterLoop(
           {
             model: modelId,
@@ -75,7 +78,13 @@ export async function POST(req: NextRequest) {
           },
           initialMessages,
           (stepData) => emit(stepData),
-          (token) => emit({ step: "delta", data: { text: token } }),
+          (token) => {
+            if (!synthesizingEmitted) {
+              emit({ step: "synthesizing" });
+              synthesizingEmitted = true;
+            }
+            emit({ step: "delta", data: { text: token } });
+          },
         );
 
         emit({ step: "follow_up_generating", data: {} });

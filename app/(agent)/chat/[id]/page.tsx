@@ -1604,19 +1604,22 @@ export default function ChatPage() {
                   setStatusMsg("Generating follow-up questions…");
                   break;
 
-                case "done":
-                  setSources(event.sources ?? []);
-                  setFollowUpQuestions(event.followUpQuestions ?? []);
+                case "done": {
+                  const doneSources = (event.data?.sources ?? event.sources ?? []) as Source[];
+                  const doneFollowUps = (event.data?.followUpQuestions ?? event.followUpQuestions ?? []) as string[];
+                  setSources(doneSources);
+                  setFollowUpQuestions(doneFollowUps);
                   updateStep("follow_up", {
                     status: "completed",
-                    summary: `${(event.followUpQuestions ?? []).length} question${(event.followUpQuestions ?? []).length !== 1 ? "s" : ""}`,
+                    summary: `${doneFollowUps.length} question${doneFollowUps.length !== 1 ? "s" : ""}`,
                   });
                   setStatusMsg("Complete");
                   setIsDone(true);
                   break;
+                }
 
                 case "error":
-                  setError(event.message);
+                  setError((event.data?.message ?? event.message ?? "Ghost Open error") as string);
                   break;
               }
             } catch {
