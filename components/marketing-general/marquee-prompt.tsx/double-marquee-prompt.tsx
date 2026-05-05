@@ -5,6 +5,22 @@ import { useChatComposerStore } from "@/store/chatComposerStore";
 import Chip from "./chip";
 import MarqueeRow from "./marquee-row";
 
+const TOP_PROMPTS = [
+  { text: "What is the notice period for terminating a residential lease in Denmark?" },
+  { text: "Draft a mutual NDA governed by German law." },
+  { text: "Compare these two software licensing agreements for liability risks." },
+  { text: "What are the criteria for a Blue Card in the EU?" },
+  { text: "Explain the GDPR requirements for data processing agreements." },
+];
+
+const BOTTOM_PROMPTS = [
+  { text: "What are the statutory severance pay requirements in the UK?" },
+  { text: "Can a landlord keep my deposit for normal wear and tear?" },
+  { text: "Draft an employment contract governed by Swedish law." },
+  { text: "What is the statute of limitations for debt collection in France?" },
+  { text: "Review this SaaS agreement for compliance with the AI Act." },
+];
+
 // ─── PromptMarquee ────────────────────────────────────────────────────────────
 
 export default function DoubleMarqueePrompt() {

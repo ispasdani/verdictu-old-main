@@ -1395,6 +1395,116 @@ export default function ChatPage() {
     [],
   );
 
+  // ── Ghost Open Simple chat runner (SSE → /api/ghost-open-simple) ────────────
+
+  const runGhostOpenSimple = useCallback(
+    async (ticker: ReturnType<typeof setInterval>) => {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const res = await fetch("/api/ghost-open-simple", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: currentTextRef.current,
+            modelId: ghostOpenModelId,
+            conversationHistory: historyRef.current,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              switch (event.step) {
+                case "delta":
+                  answerRef.current += event.data.text as string;
+                  setAnswerText(answerRef.current);
+                  break;
+                case "done":
+                  setIsDone(true);
+                  break;
+                case "error":
+                  setError((event.data.message as string) ?? "Unknown error");
+                  break;
+              }
+            } catch {
+              // malformed chunk — skip
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Connection failed");
+      }
+
+      clearInterval(ticker);
+      setIsRunning(false);
+      setElapsedMs(Date.now() - startTimeRef.current);
+    },
+    [ghostOpenModelId],
+  );
+
+  // ── Ghost Local Simple chat runner (WebLLM) ─────────────────────────────────
+
+  const runGhostSimple = useCallback(
+    async (ticker: ReturnType<typeof setInterval>) => {
+      if (!ghostIsReady) {
+        setError("Ghost model is not loaded.");
+        clearInterval(ticker);
+        setIsRunning(false);
+        return;
+      }
+
+      try {
+        const messages: Array<{ role: "user" | "assistant" | "system"; content: string }> = [
+          { role: "system", content: "You are a helpful, knowledgeable, and versatile AI assistant. You can help with anything: writing, coding, analysis, research, brainstorming, math, creative work, explanations, and more. Be clear, concise, and friendly. Format your responses with markdown when it improves readability." },
+          ...historyRef.current.map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+          { role: "user", content: currentTextRef.current },
+        ];
+
+        await ghostGenerate({
+          messages,
+          onToken: (token) => {
+            answerRef.current += token;
+            setAnswerText(answerRef.current);
+          },
+          onDone: () => {
+            setIsDone(true);
+          },
+          onError: (err) => {
+            setError(err);
+          },
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Generation failed");
+      } finally {
+        clearInterval(ticker);
+        setIsRunning(false);
+        setElapsedMs(Date.now() - startTimeRef.current);
+      }
+    },
+    [ghostIsReady, ghostGenerate],
+  );
+
   // ── Ghost Open runner (SSE → /api/ghost-api) ────────────────────────────────
 
   const runGhostOpen = useCallback(
@@ -1669,6 +1779,40 @@ export default function ChatPage() {
       100,
     );
 
+    if (chatMode === "general") {
+      if (ghostEnabled) {
+        runGhostSimple(ticker).catch((err) => {
+          setError(err instanceof Error ? err.message : String(err));
+          clearInterval(ticker);
+          setIsRunning(false);
+        });
+        return () => {
+          clearInterval(ticker);
+          ghostAbort();
+        };
+      } else if (ghostOpenEnabled) {
+        runGhostOpenSimple(ticker).catch((err) => {
+          setError(err instanceof Error ? err.message : String(err));
+          clearInterval(ticker);
+          setIsRunning(false);
+        });
+        return () => {
+          clearInterval(ticker);
+          abortControllerRef.current?.abort();
+        };
+      } else {
+        runSimpleChat(ticker).catch((err) => {
+          setError(err instanceof Error ? err.message : String(err));
+          clearInterval(ticker);
+          setIsRunning(false);
+        });
+        return () => {
+          clearInterval(ticker);
+          abortControllerRef.current?.abort();
+        };
+      }
+    }
+
     if (ghostEnabled) {
       runGhost(ticker).catch((err) => {
         setError(err instanceof Error ? err.message : String(err));
@@ -1685,19 +1829,6 @@ export default function ChatPage() {
 
     if (ghostOpenEnabled) {
       runGhostOpen(ticker).catch((err) => {
-        setError(err instanceof Error ? err.message : String(err));
-        clearInterval(ticker);
-        setIsRunning(false);
-      });
-      return () => {
-        clearInterval(ticker);
-        abortControllerRef.current?.abort();
-      };
-    }
-
-    // General mode — plain streaming chat, no legal pipeline
-    if (chatMode === "general") {
-      runSimpleChat(ticker).catch((err) => {
         setError(err instanceof Error ? err.message : String(err));
         clearInterval(ticker);
         setIsRunning(false);
