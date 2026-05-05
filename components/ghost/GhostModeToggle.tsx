@@ -13,6 +13,7 @@ import {
   TriangleAlert,
   Cloud,
   ShieldOff,
+  Lock,
 } from "lucide-react";
 import { useGhostModeStore } from "@/store/ghostModeStore";
 import { useGhostLLM } from "@/hooks/useGhostLLM";
@@ -178,6 +179,7 @@ function GhostModelSelector() {
               const isSelected = model.id === selectedModelId;
               const isRecommended = model.tags.includes("recommended");
               const needsF16 = model.requiresShaderF16 === true;
+              const isDesktopOnly = model.desktopOnly === true;
               const prevModel = GHOST_MODELS[idx - 1];
               const showDivider = needsF16 && prevModel && !prevModel.requiresShaderF16;
               return (
@@ -193,8 +195,13 @@ function GhostModelSelector() {
                   )}
                   <button
                     type="button"
-                    onClick={() => { setSelectedModelId(model.id); setOpen(false); }}
-                    className={`w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-accent transition-colors ${isSelected ? "bg-accent" : ""}`}
+                    disabled={isDesktopOnly}
+                    title={isDesktopOnly ? "Requires the desktop app. Download the desktop app to use bigger models." : undefined}
+                    onClick={() => {
+                      if (isDesktopOnly) return;
+                      setSelectedModelId(model.id); setOpen(false); 
+                    }}
+                    className={`w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-accent transition-colors ${isSelected ? "bg-accent" : ""} ${isDesktopOnly ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""}`}
                   >
                     <div className="mt-1 shrink-0 w-3">
                       {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-foreground" />}
@@ -212,6 +219,11 @@ function GhostModelSelector() {
                         {needsF16 && (
                           <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-amber-50 text-amber-600 border border-amber-100">
                             <TriangleAlert size={8} /> shader-f16
+                          </span>
+                        )}
+                        {isDesktopOnly && (
+                          <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-rose-50 text-rose-600 border border-rose-100">
+                            <Lock size={8} /> Desktop Only
                           </span>
                         )}
                       </div>

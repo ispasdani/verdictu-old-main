@@ -24,6 +24,10 @@ export type GhostModel = {
    * so the think block doesn't exhaust the budget before the answer is written.
    */
   isReasoningModel?: boolean;
+  /**
+   * Requires the desktop app. Large models > 5B parameters are disabled in the browser.
+   */
+  desktopOnly?: boolean;
 };
 
 export const GHOST_MODELS: GhostModel[] = [
@@ -139,6 +143,7 @@ export const GHOST_MODELS: GhostModel[] = [
     description: "Chain-of-thought reasoning distilled from R1. Surprisingly efficient on VRAM.",
     tags: ["reasoning", "powerful"],
     isReasoningModel: true,
+    desktopOnly: true,
   },
   {
     id: "Qwen2.5-7B-Instruct-q4f16_1-MLC",
@@ -150,6 +155,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~2.9GB",
     description: "Highly capable 7B with excellent instruction following. Recommended for Ghost Local agentic mode.",
     tags: ["powerful", "recommended"],
+    desktopOnly: true,
   },
   {
     id: "Qwen3-8B-q4f16_1-MLC",
@@ -161,6 +167,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.3GB",
     description: "Latest Qwen3 8B with thinking mode. Strongest local model overall.",
     tags: ["powerful"],
+    desktopOnly: true,
   },
   {
     id: "Llama-3.1-8B-Instruct-q4f32_1-MLC",
@@ -172,6 +179,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.6GB",
     description: "Meta's flagship 8B instruction model. Versatile and well-rounded.",
     tags: ["powerful"],
+    desktopOnly: true,
   },
   {
     id: "Hermes-3-Llama-3.1-8B-q4f16_1-MLC",
@@ -184,6 +192,7 @@ export const GHOST_MODELS: GhostModel[] = [
     description: "Exceptional function calling and agentic capabilities. The recommended model for True Agentic Ghost Local mode.",
     tags: ["powerful", "agentic", "recommended"],
     supportsToolUse: true,
+    desktopOnly: true,
   },
   {
     id: "DeepSeek-R1-Distill-Llama-8B-q4f32_1-MLC",
@@ -196,6 +205,7 @@ export const GHOST_MODELS: GhostModel[] = [
     description: "R1 reasoning distilled into Llama 8B. Best defense reasoning for users with a dedicated GPU.",
     tags: ["reasoning", "powerful", "defense"],
     isReasoningModel: true,
+    desktopOnly: true,
   },
   {
     id: "Mistral-7B-Instruct-v0.3-q4f16_1-MLC",
@@ -207,6 +217,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~4.6GB",
     description: "Popular open-weight 7B. Great general-purpose performance.",
     tags: ["powerful"],
+    desktopOnly: true,
   },
   {
     id: "gemma-2-9b-it-q4f16_1-MLC",
@@ -218,6 +229,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~5.5GB",
     description: "Google's 9B model. Excellent performance and reasoning capabilities.",
     tags: ["powerful"],
+    desktopOnly: true,
   },
 
   // ── Massive (14B+ — requires high-end GPU or Mac with 32GB+ RAM) ─────────────
@@ -232,6 +244,7 @@ export const GHOST_MODELS: GhostModel[] = [
     vram: "~16.5GB",
     description: "Google's flagship 27B model. Unmatched local performance but requires significant resources.",
     tags: ["powerful", "heavy"],
+    desktopOnly: true,
   },
 
   // ── Micro (requires shader-f16) ───────────────────────────────────────────
