@@ -8,8 +8,8 @@
  * @module
  */
 
+import type * as documents from "../documents.js";
 import type * as http from "../http.js";
-import type * as tasks from "../tasks.js";
 import type * as users from "../users.js";
 
 import type {
@@ -19,8 +19,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  documents: typeof documents;
   http: typeof http;
-  tasks: typeof tasks;
   users: typeof users;
 }>;
 

@@ -34,6 +34,28 @@ export default defineSchema({
     ), // Chat input mode
     jurisdiction: v.optional(v.string()), // Jurisdiction selected for this chat
     citationEnabled: v.boolean(), // Whether citations were enabled
+    workingState: v.optional(
+      v.object({
+        parties: v.array(
+          v.object({
+            name: v.string(),
+            role: v.string(),
+            jurisdiction: v.string(),
+            key_facts: v.array(v.string()),
+          })
+        ),
+        research: v.any(), // Record<string, string>
+        draft: v.union(
+          v.null(),
+          v.object({
+            current_version: v.string(),
+            disputed_clauses: v.array(v.string()),
+          })
+        ),
+        decisions: v.array(v.string()),
+        precedents_used: v.array(v.string()),
+      })
+    ),
     // Structured turns matching VerdictuTurn — each turn is one user Q + assistant A pair
     turns: v.array(
       v.object({
@@ -67,6 +89,7 @@ export default defineSchema({
             applies_because: v.string(),
           }),
         ),
+        searchQueries: v.optional(v.array(v.string())),
         timestamp: v.number(),
         elapsedMs: v.number(),
         isGhost: v.optional(v.boolean()),
