@@ -8,6 +8,7 @@ import {
   HelpCircle,
   Settings,
   SquarePen,
+  LayoutTemplate,
 } from "lucide-react";
 import { ImportChatButton } from "@/components/chat/ImportChatButton";
 import { AgentSettings } from "@/components/settings/AgentSettings";
@@ -32,6 +33,7 @@ import { cn } from "@/lib/utils";
 const FEATURES = [
   { id: "chat", label: "Chat", icon: MessageSquare, href: "/chat/new" },
   { id: "workflows", label: "Workflows", icon: Workflow, href: "/workflows" },
+  { id: "templates", label: "Templates", icon: LayoutTemplate, href: "/templates" },
 ];
 
 // ─── Component ───────────────────────────────────────────────────────────────
