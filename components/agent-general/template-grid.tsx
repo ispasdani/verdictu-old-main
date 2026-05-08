@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ArrowRight, X } from "lucide-react";
+import { Plus, ArrowRight, X, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ export interface Template {
   fullContent: string;
 }
 
-const TEMPLATES: Template[] = [
+export const TEMPLATES: Template[] = [
   {
     id: "1",
     title: "Transmittal of Documents for Signature",
@@ -64,6 +65,7 @@ const TEMPLATES: Template[] = [
 
 export function TemplateGrid() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const router = useRouter();
 
   return (
     <div className="w-full max-w-7xl mx-auto px-6 py-8">
@@ -151,7 +153,17 @@ export function TemplateGrid() {
                     <h2 className="text-2xl font-bold text-zinc-900 mb-2">
                       {template.title}
                     </h2>
-                    <p className="text-zinc-500 mb-8">{template.description}</p>
+                    <p className="text-zinc-500 mb-6">{template.description}</p>
+                    
+                    <div className="mb-8">
+                      <Button 
+                        onClick={() => router.push(`/editor?templateId=${template.id}`)}
+                        className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-6"
+                      >
+                        <Edit2 size={16} className="mr-2" />
+                        Use & Edit Document
+                      </Button>
+                    </div>
 
                     <div className="bg-white border border-zinc-200 rounded-xl p-8 shadow-sm">
                       <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-700 leading-relaxed">
