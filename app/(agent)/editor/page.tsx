@@ -1,5 +1,5 @@
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
-import { TEMPLATES } from "@/components/agent-general/template-grid";
+import { TEMPLATES } from "@/lib/templates";
 import { notFound } from "next/navigation";
 
 export const metadata = {
