@@ -13,6 +13,40 @@
     },
     "articles": [
       {
+  "title": "Local-First Security: The Ghost Architecture",
+  "popular": true,
+  "popularity": 1,
+  "description": "Legal AI is only usable if your client data stays strictly confidential. While legacy cloud-first legal tech forces firms into centralized servers and risk-heavy data retention, Verdictu operates on a zero-egress policy. Run elite, uncensored defense models directly on your laptop—meaning your briefs, discovery bundles, and matter indexes never leave your machine.",
+  "date": "18 February 2026",
+  "read": "6 mins",
+  "label": "Product",
+  "img": "/videos/presentation-video.mp4",
+  "video": "/videos/presentation-video.mp4",
+  "imgAlt": "An air-gapped laptop running local inference logs in a dark workspace",
+  "slug": "local-first-security-ghost-mode",
+  "content": [
+    {
+      "img": "/images/articles/single-post/ghost-security.jpg",
+      "summary": "Client files are sacred, and in adversarial law, a centralized cloud is a single point of failure. Verdictu's Ghost Mode completely re-engineers legal AI by processing everything locally. Because your hardware handles the weights, the embeddings, and the indexing, there is zero data egress—and nothing for a third party to ever subpoena from us."
+    },
+    {
+      "section1": "### The core pattern\n\nTrue data sovereignty isn't achieved via cloud compliance checklists; it's achieved via physics. Verdictu's local-first architecture follows a strict sequence that completely seals your workspace:\n\n1) Ingest documents locally into an encrypted-at-rest database.\n2) Generate embeddings on-device using highly optimized local models.\n3) Execute the agentic reasoning loop entirely within your machine's RAM/VRAM.\n4) Block outbound network gateways automatically at the application layer.\n5) Log all operations to a local, cryptographically hashed forensic audit trail.\n\nOur interface makes this ironclad: when you toggle 'Ghost Mode,' the network adapter is structurally bypassed. Whether you are running a 70B Defender fine-tune or a localized deep-reasoning model, inference happens on your Apple Silicon, CUDA, or ROCm hardware. No API keys, no telemetry, no leaks."
+    },
+    {
+      "quote": [
+        "The most secure data is the data you never send to someone else's server.",
+        "Verdictu Editorial"
+      ]
+    },
+    {
+      "summary2": "Verdictu bypasses the procurement friction, seat lock-ins, and surveillance risks of legacy systems. By matching the performance of elite cloud-based legal giants while running entirely within your perimeter, it provides individual public defenders and massive firms alike with uncompromised, air-gapped adversarial power."
+    },
+    {
+      "section2": "### Practical output rules we use\n\n- We guarantee **0 KB egress** during local workflows—fully verified by active firewall telemetry.\n- We support **hot-swapping local GGUF weights** seamlessly without application restarts.\n- Our specialized models are **vetted for zero refusal rates**, preventing mid-draft censorship on sensitive criminal defense matters.\n- We keep our source code open for inspection via **Ghost Open**, ensuring your IT team can audit our zero-retention infrastructure.\n\n### The takeaway\n\nIf you build your practice on local-first thinking, your defense strategies stay entirely confidential. Verdictu turns legal AI into a localized weapon for your firm: hyper-secure, fiercely independent, and completely contained on the machine right in front of you."
+    }
+  ]
+},
+      {
         "title": "Jurisdiction-First Answers",
         "popular": true,
         "popularity": 1,
