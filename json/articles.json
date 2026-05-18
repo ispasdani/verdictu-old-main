@@ -11,9 +11,63 @@
       "summary": "Verdictu Editorial writes about building trustworthy legal workflows across European jurisdictions.",
       "body": "We cover product decisions, legal research workflows, and how to keep AI answers grounded in sources. Verdictu’s mission is to make legal work faster without sacrificing accuracy, clarity, or jurisdictional nuance."
     },
-    "articles": [
+    "articles": [{
+  "title": "Autonomous Data Privacy",
+  "popular": true,
+  "popularity": 1,
+  "description": "Verdictu is the plug-and-play legal AI built for zero-trust environments. While mainstream platforms process your client files on exposed public clouds, Verdictu’s Ghost Mode creates an absolute perimeter. Run top-tier, uncensored legal models completely on your own hardware—ensuring that your strategies, discovery documents, and internal drafting never leave your machine.",
+  "date": "18 February 2026",
+  "read": "4 mins",
+  "label": "Security Spotlight",
+  "img": "/videos/security-deepdive.mp4",
+  "video": "/videos/security-deepdive.mp4",
+  "imgAlt": "A security dashboard showing a blocked outbound network map and active local inference",
+  "content": [
+    {
+      "img": "/images/articles/single-post/zero-egress.jpg",
+      "summary": "In high-stakes litigation, client confidentiality isn't just a preference—it is a non-negotiable legal obligation. Verdictu replaces cloud-dependent vulnerabilities with localized cryptographic certainty. By keeping data processing strictly inside your local RAM and encrypted storage, it delivers the predictive power of advanced legal orchestration without the liability of external data retention."
+    },
+    {
+      "section1": "### The containment framework\n\nWhen a law firm handles sensitive, proprietary, or highly contested discovery material, cloud security checklists aren't enough. Verdictu enforces privacy at the protocol level:\n\n1) Localized Parsing: Case documentation is ingested and indexed entirely on your local file system.\n2) Isolated Inference: Prompts and legal briefs are processed using localized GGUF model files.\n3) Complete Air-Gap: Outbound network telemetry is structurally severed while Ghost Mode is active.\n4) Local Cryptographic Logs: Audit and forensic history stay on-disk, fully controlled by the operator.\n\nThis makes Verdictu inherently un-subpoenable from a vendor level. Because we hold zero logs, zero records, and zero copies of your workspace, your data remains safely out of reach of external adversaries."
+    }
+  ]
+},
       {
-  "title": "Local-First Security: The Ghost Architecture",
+  "title": "Agentic Legal Privacy",
+  "popular": true,
+  "popularity": 1,
+  "description": "Meet Verdictu: the first agentic legal AI engineered for absolute data sovereignty. While legacy systems lock your firm into multi-year contracts and force sensitive client discoveries onto external servers, Verdictu executes complex legal research, drafting, and analysis completely inside your own perimeter. Pick a jurisdiction, deploy an uncensored local model, and command an AI agent that answers to no one but you.",
+  "date": "18 February 2026",
+  "read": "3 mins",
+  "label": "Core Product",
+  "img": "/videos/hero-walkthrough.mp4",
+  "video": "/videos/hero-walkthrough.mp4",
+  "imgAlt": "The Verdictu terminal executing a multi-step defense workflow with zero network egress",
+  "slug": "meet-verdictu-agentic-legal-privacy",
+  "content": [
+    {
+      "img": "/images/articles/single-post/hero-interface.jpg",
+      "summary": "Verdictu isn't just another chat window. It is a fully autonomous legal workspace designed for work that has to hold up in court. From drafting complex motions to suppress under strict statutory codes to analyzing massive multi-page expert reports, it chains the tools, models, and local indexes required to defend your matter—with zero data leaks, zero seat limits, and zero contract lock-ins."
+    },
+    {
+      "section1": "### The agentic loop\n\nUnlike traditional LLMs that merely guess the next word, Verdictu runs a structured, deterministic legal playbook that acts like a senior associate on your machine:\n\n1) Lock the precise jurisdiction, court tier, and statutory code down to the section.\n2) Ingest and index thousands of pages of raw case files, discovery logs, or transcripts locally.\n3) Cross-check timelines and statements against regional precedent to surface latent contradictions.\n4) Attack the problem adversarially, actively sourcing dissenting authorities to pre-mortem the opposition.\n5) Stream the final, source-cited draft directly into an interactive editor built for real-time collaboration.\n\nThis entire orchestration happens on your terms. If you choose to run local weights in Ghost Mode, the execution is entirely air-gapped. Your client bundles never touch a third-party API, meaning there is no centralized data trail to subpoena."
+    },
+    {
+      "quote": [
+        "Uncompromising legal reasoning. Total infrastructure control. Open to any operator.",
+        "Verdictu Manifesto"
+      ]
+    },
+    {
+      "summary2": "We believe elite legal AI shouldn't be gated behind a corporate sales pitch, white-shoe firm credentials, or forced cloud surveillance. Verdictu gives sole practitioners, public defenders, and enterprise teams identical access to specialized, un-refusable legal fine-tunes. You own your hardware, you own your weights, and you own your strategy."
+    },
+    {
+      "section2": "### What makes Verdictu different\n\n- **Zero-Trust Infrastructure:** Switch between cloud frontier APIs or fully local GGUF models on your laptop with a single toggle.\n- **Jurisdiction-Locking Architecture:** Eradicate generic AI hallucinations by pinning every workflow to exact geographic rulesets, codes, and court circuits.\n- **Uncensored Defense Tuning:** Run dedicated, locally hosted models that will never refuse or censor highly sensitive criminal or adversarial drafting prompts.\n- **Transparent, Pay-As-You-Go Pricing:** Walk away whenever you want. Local models are free forever for a single operator, and cloud credits roll over seamlessly without seat minimums.\n\n### The bottom line\n\nStop compromising your client's privacy for the sake of modern automation. With Verdictu, you get a powerful, jurisdiction-aware AI agent that does the heavy lifting, an editor that tracks citations as it writes, and a security model that guarantees your intellectual property never leaves your machine. Download the runtime, drop in your files, and ship the verdict."
+    }
+  ]
+},
+      {
+  "title": "Privacy First Architecture",
   "popular": true,
   "popularity": 1,
   "description": "Legal AI is only usable if your client data stays strictly confidential. While legacy cloud-first legal tech forces firms into centralized servers and risk-heavy data retention, Verdictu operates on a zero-egress policy. Run elite, uncensored defense models directly on your laptop—meaning your briefs, discovery bundles, and matter indexes never leave your machine.",
